@@ -1,3 +1,26 @@
+ % The form of the \bibitem entries is
+ %   \bibitem[Jones et al.(1990)]{key}...
+ %   \bibitem[Jones et al.(1990)Jones, Baker, and Smith]{key}...
+ % The essential feature is that the label (the part in brackets) consists
+ % of the author names, as they should appear in the citation, with the year
+ % in parentheses following. There must be no space before the opening
+ % parenthesis!
+ % With natbib v5.3, a full list of authors may also follow the year.
+ % In natbib.sty, it is possible to define the type of enclosures that is
+ % really wanted (brackets or parentheses), but in either case, there must
+ % be parentheses in the label.
+ % The \cite command functions as follows:
+ %   \cite{key} ==>>                Jones et al. (1990)
+ %   \cite[]{key} ==>>              (Jones et al., 1990)
+ %   \cite[chap. 2]{key} ==>>       (Jones et al., 1990, chap. 2)
+ %   \cite[e.g.][]{key} ==>>        (e.g. Jones et al., 1990)
+ %   \cite[e.g.][p. 32]{key} ==>>   (e.g. Jones et al., p. 32)
+ %   \citeauthor{key}               Jones et al.
+ %   \citefullauthor{key}           Jones, Baker, and Smith
+ %   \citeyear{key}                 1990
+%%---------------------------------------------------------------------
+
+
 @article{ahmed2007modeling,
     title     = {Modeling survival in colon cancer: a methodological review},
     author    = {Ahmed, Farid E and Vos, Paul W and Holbert, Don},
@@ -241,3 +264,4 @@
   year={2019},
   publisher={Nature Publishing Group}
 }
+
