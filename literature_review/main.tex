@@ -1,0 +1,72 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Lachaise Assignment
+% LaTeX Template
+% Version 1.0 (26/6/2018)
+%
+% This template originates from:
+% http://www.LaTeXTemplates.com
+%
+% Authors:
+% Marion Lachaise & François Févotte
+% Vel (vel@LaTeXTemplates.com)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass{article}
+
+\input{structure.tex} % Include the file specifying the document structure and custom commands
+
+%----------------------------------------------------------------------------------------
+%	ASSIGNMENT INFORMATION
+%----------------------------------------------------------------------------------------
+
+\title{DOPE: a predictive multi-omic model for cancer prognosis} % Title of the assignment
+
+\author{Cancan Huang, Reetam Ganguli, Laura McCallion, Anessa Petteruti\\ \texttt{\{cancan\_huang, reetam\_ganguli,} \\ \texttt{laura\_mccallion, anessa\_petteruti\}@brown.edu}} % Author name and email address
+
+\date{Brown University --- \today} % University, school and/or department name(s) and a date
+
+%----------------------------------------------------------------------------------------
+
+\begin{document}
+
+\maketitle % Print the title
+
+%----------------------------------------------------------------------------------------
+%	INTRODUCTION
+%----------------------------------------------------------------------------------------
+\vspace{-1cm}
+\section*{Literature Review} % Unnumbered section
+
+Cancer has been ranked as the second leading cause of death with about 1 out of 10 adults in the United States been diagnosed with cancer\cite{aruleba2020applications,siegel2019cancer}. Gynecologic malignancies account for approximately 12\% of all new cancer cases and 15\% of all female cancer survivors\cite{salani2017update}. In the United States, approximately 84,000 new cases of gynecologic malignancies are diagnosed resulting in about 2,800 deaths annually\cite{stewart2013gynecologic}. Numerous efforts have been mobilized globally to forge solutions to save patients from the hand of devil.
+
+% Among different cancer types, breast cancer and ovarian cancer are two of the most lethal gynecologic malignancies, despite multi-years of studies in understanding their mechanisms and existing therapies\cite{wooster2003breast,graf2021association}. Furthermore, it has been reported that up to 20\% of patients with either breast cancer or ovarian cancer have a relative with one of these diseases, indicating the potential correlation between these two cancer types\cite{madigan1995proportion}.
+
+% Gynecologic malignancies consist primarily of five different anatomic locations: cervical, ovarian, uterine, vaginal, and vulvar cancer\cite{stewart2013gynecologic}. Cervical, uterine, and ovarian cancers accounted for 5.0\%, 5.9\%, and 2.8\% of all worldwide malignancies among women in 2012 respectively\cite{huang2016incidence}.  Standard management often consists of surgery (i.e., debulking surgery, hysterectomy, and bilateral salpingo-oophorectomy) with neoadjuvant chemotherapy\cite{stewart2013gynecologic, ota2008adjuvant}.
+
+One important goal for current cancer prognosis is to provide guidance for treatment to achieve better survival rate on the basis of patients' clinical profile. 
+Berkson and Gage\cite{rp1950calculation} firstly computed the Life Table to obtain the enhanced frequency distribution of patients' survival times, followed by a nonparametric method proposed by Kaplan and Meier\cite{kaplan1958nonparametric} for survival curve as well as the Proportional Hazards (PH) regression model by Cox\cite{cox1972regression}. While those statistical methods have been widely used, most of them are mainly focuses only on specific clinical data, such as cancer types, cancer diagnosis and etc.
+
+In recent years, researchers aiming at early diagnosis and curing these diseases have been fueled by many advances in experimental techniques, which output high throughput and high dimensional multi-omics data of patient samples\cite{wooster2003breast,goossens2015cancer}. With the development of experimental techniques and the emerging abundant data, for example, genomics data (i.e., whole genome data), expression data (i.e., mRNA data) and epigenetic data (i.e., chromosomal modifications), it is necessary and demanding for developing efficient and effective computational methods capable of understanding and handling those multi-omics data for more accurate cancer prognosis\cite{zhu2020application}. 
+
+% On the other hand, with the burst of computational power and rapid advancement in the technology of artificial intelligence, it is believed that the use of state of the art computational approaches will greatly benefit and accelerate the design and development of novel diagnostic method for breast and ovarian cancers.
+
+To solve these problems and take advantage of the massive data, other methods, including machine learning techniques are applied. Alexe et al.\cite{alexe2007analysis} combined principal components analysis (PCA) and $k$-clustering for breast cancer progression analysis. Xu et al.\cite{xu2012gene} adopted support vector machine (SVM) for breast cancer prognosis on gene expression dataset. Graf et al.\cite{graf2021association} use genetic association study find the strong correlation between the copy number variation (CNV) signatures and the ovarian cancer. Other machine learning approaches, such as Bayesian networks, decision trees and semi-supervised learning, have also been applied in cancer prognosis prediction and shown good performance\cite{kourou2015machine}.
+
+Deep learning, a branch of machine learning, shows promise in excellent performance in recent years due to the establishment of public accessible large-scale cancer databases as well as breakthroughs in model architectures\cite{zhu2020application}. For example, The Cancer Genome Atlas (TCGA) database, containing both clinical and molecular data from over 11,000 tumor patients covering 33 different cancer types, has been widely used for different tasks\cite{tomczak2015cancer}. Ching et al.\cite{ching2018cox} developed fully-connected neural network model for predicting survival time. The model is trained on TCGA gene expression data, clinical data as well as survival data and achieved better performance than Cox methods and random forest. Guo et al.\cite{guo2020deep} proposed a pipeline to identify ovarian cancer subtypes based upon multi-omics ovarian cancer features (mRNA, miRNA, and CNV). A denoising autoencoder is used to generate low dimensional representation from the multi-omics ovarian cancer features. K-means clustering is then labeled reconstructed features for ovarian cancer subtypes. After obtaining the labels, a simple logistic regression model with only mRNA as input is used for the final identification. Sun et al.\cite{sun2019identification} collected point mutations from healthy tissues and tumor tissues as input for their deep neural network (DNN) model, which exhibited comparable performance in classification of 12 types of cancers.
+
+The successes of deep learning model in utilizing the massive data of multiple types are delightful. \textbf{Therefore, in our project, we aim at implementing a deep learning model trained with multi-omic data for predicting some medical outcomes, such as survival time, recurrence and etc, for ovarian and breast cancer patients}. 
+
+%----------------------------------------------------------------------------------------
+
+\bibliographystyle{unsrt}
+\bibliography{ref}
+
+\end{document}
