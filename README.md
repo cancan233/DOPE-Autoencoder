@@ -15,3 +15,8 @@ The Research Project Assessment can be found [here](https://docs.google.com/docu
 |      N     	|         Second draft        	|   12/07  	|
 |      N     	| Final Project presentations 	|   12/14  	|
 |      N     	|     Final research paper    	|   12/16  	|
+
+## Data
+We are using multi-omics data for training our model. 
+
+preprocess.py includes functions that convert the raw text files holding biomedical and clinical data into csvs through pandas dataframes. The first column contains the patients' uuids ('bcr_patient_uuid') and the subsequent columns include features, such as 'pharmaceutical_therapy_type', 'retrospective_collection', 'gender', etc. Some patient uuids of the biomedical data do not correspond to select information collected for the clinical data so those entries currently are NaN, which we will determine how to further process for training.
