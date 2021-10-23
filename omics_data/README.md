@@ -32,15 +32,8 @@ The folder contains four types of data: CNV, mRNA, DNA methylation, RNAseq. All 
 * [DNA methylation](https://xenabrowser.net/datapages/?dataset=TCGA.OV.sampleMap%2FHumanMethylation27&host=https%3A%2F%2Ftcga.xenahubs.net&removeHub=https%3A%2F%2Fxena.treehouse.gi.ucsc.edu%3A443). Size: (27578, 616)
     * DNA methylation profile was measured experimentally using the Illumina Infinium HumanMethylation27 platform. DNA methylation beta values are continuous variable between 0 and 1, representing the ratio of the intensity of the methylated bead type to the combined locus intensity. Higher beta values represent higher level of DNA methylation. 
 
-* [Biomedical] (Available at https://wiki.cancerimagingarchive.net/display/Public/TCGA-OV#75694970aa49cd675604c35a9d171bde3194990). Size: (25249, 117)
-
-* [Clinical] (Available at https://wiki.cancerimagingarchive.net/display/Public/TCGA-OV#75694970aa49cd675604c35a9d171bde3194990). Size: (4347, 131)
-    
-
 ## Dataset Preprocess details
 The data preprocess follows the steps same as [Hira et al.](https://www.nature.com/articles/s41598-021-85285-4.pdf)
-
-For the biomedical and clinical data, each .txt file was converted into a .csv and then a pandas dataframe. The biomedical dataframes were then concatenated with the clinical dataframes, yielding a size = (29596, 244) dataframe called biomedical_clinical_data.csv in the biomed_clinic_data folder.
 
 <figure>
     <img src="./summary_table.png" alt="summary_data">
