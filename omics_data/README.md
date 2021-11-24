@@ -5,7 +5,7 @@ The jupyter notebook `omics_data_preparation.ipynb` provides way to download the
 
 A simple to use it: change the domain of the notebook from 'github.com' to 'githubtocolab.com'. And it will open in Google Colab automatically.
 
-We also provide the preprocessed data, which can be downloaded directly from the [Google Drive Link](https://drive.google.com/drive/folders/1-I54hMQOTHLTsKpf26pe_yDyIp-2HoB5?usp=sharing). 
+We also provide the preprocessed data, which can be downloaded directly from the [Google Drive Link](https://drive.google.com/drive/folders/1-I54hMQOTHLTsKpf26pe_yDyIp-2HoB5?usp=sharing). Put the code below into a .sh file and run it from terminal. The example will download the `cnv.csv`. You need to change the `FILEID` and `FILENAME` to download different dataset.
 
 ```bash
 # download any file from the google drive using wget
@@ -13,7 +13,7 @@ We also provide the preprocessed data, which can be downloaded directly from the
 
 FILEID=1-1CllImqDG29XvU9raJfRHR4Hd77WX_W
 FILENAME='cnv.csv'
-wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1Y7O3J_htkaFc1FSPIoc8oEWvzD3843ug' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1Y7O3J_htkaFc1FSPIoc8oEWvzD3843ug" -O $FILENAME && rm -rf /tmp/cookies.txt
+wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=$FILEID' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=$FILEID" -O $FILENAME && rm -rf /tmp/cookies.txt
 ```
 
 ## Dataset details

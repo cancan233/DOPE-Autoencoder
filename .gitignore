@@ -1,6 +1,9 @@
 # custom files
 .DS_Store
 .vscode/
+omics_data/*.csv
+*/tmp/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

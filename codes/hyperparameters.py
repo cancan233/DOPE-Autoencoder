@@ -17,3 +17,13 @@ parameter to avoid divide by 0
 """
 epsilon = 1e-5
 
+"""
+Batch size
+"""
+batch_size = 4
+
+
+"""
+encode dimension
+"""
+intermediate_dim = 1024
