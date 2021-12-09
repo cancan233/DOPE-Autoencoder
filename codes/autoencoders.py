@@ -18,7 +18,7 @@ class vanilla_encoder(tf.keras.layers.Layer):
     def __init__(self, latent_dim):
         super(vanilla_encoder, self).__init__()
         self.hidden_layer = Dense(
-            units=latent_dim, activation=relu, kernel_initializer="he_uniform"
+            units=4096, activation=relu, kernel_initializer="he_uniform"
         )
         self.output_layer = Dense(units=latent_dim, activation=sigmoid)
 
@@ -31,7 +31,7 @@ class vanilla_decoder(tf.keras.layers.Layer):
     def __init__(self, latent_dim, input_dim):
         super(vanilla_decoder, self).__init__()
         self.hidden_layer = Dense(
-            units=latent_dim, activation=relu, kernel_initializer="he_uniform"
+            units=4096, activation=relu, kernel_initializer="he_uniform"
         )
         self.output_layer = Dense(units=input_dim, activation=sigmoid)
 

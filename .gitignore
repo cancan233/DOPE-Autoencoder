@@ -4,6 +4,8 @@
 omics_data/*.csv
 codes/*.csv
 */tmp/
+*/output
+*/data
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -12,6 +12,13 @@ from autoencoders import (
     convolutional_autoencoder,
 )
 from classifiers import vanilla_classifier
+from xgboost import XGBClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import roc_curve, plot_roc_curve, roc_auc_score
+
+import matplotlib.pyplot as plt
 
 # diable all debugging logs
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -47,12 +54,12 @@ def parse_args():
         help="not save the checkpoints, logs and model. Used only for develop purpose",
     )
     parser.add_argument(
-        "--load-checkpoint",
+        "--load-autoencoder",
         default=None,
         help="path to model checkpoint file, should be similar to ./output/checkpoints/041721-201121/epoch19",
     )
     parser.add_argument(
-        "--predict",
+        "--classifier",
         action="store_true",
         help="use the trained autoencoder to predict the outcome.",
     )
@@ -60,6 +67,9 @@ def parse_args():
         "--evaluate",
         action="store_true",
         help="skips training. evaluates the performance of the trained model.",
+    )
+    parser.add_argument(
+        "--train-autoencoder", action="store_true", help="train the autoencoder"
     )
     return parser.parse_args()
 
@@ -121,10 +131,20 @@ def main():
         except RuntimeError as e:
             print(e)
 
+    checkpoint_path = "./output/checkpoints" + os.sep + timestamp + os.sep
+    logs_path = "./output/logs" + os.sep + timestamp + os.sep
+    logs_path = os.path.abspath(logs_path)
+
+    if not os.path.exists(checkpoint_path) and not os.path.exists(logs_path):
+        os.makedirs(checkpoint_path)
+        os.makedirs(logs_path)
+
     omics_data = pd.read_csv(ARGS.omics_data, index_col=0).T.astype("float32")
     (num_patients, num_features) = omics_data.shape
+    # print(num_patients, num_features)
 
     tf.convert_to_tensor(omics_data)
+    omics_data = tf.expand_dims(omics_data, axis=1)
     training_dataset = tf.data.Dataset.from_tensor_slices(omics_data)
     training_dataset = training_dataset.batch(hp.batch_size)
     training_dataset = training_dataset.shuffle(num_patients)
@@ -145,79 +165,138 @@ def main():
     else:
         sys.exit("Wrong model for autoencoder!")
 
-    optimizer = tf.keras.optimizers.Adam(
-        (
-            tf.keras.optimizers.schedules.InverseTimeDecay(
-                hp.learning_rate, decay_steps=1, decay_rate=5e-5
+    if ARGS.load_autoencoder is not None:
+        autoencoder.load_weights(ARGS.load_autoencoder).expect_partial()
+
+    if ARGS.train_autoencoder:
+        optimizer = tf.keras.optimizers.Adam(
+            (
+                tf.keras.optimizers.schedules.InverseTimeDecay(
+                    hp.learning_rate, decay_steps=1, decay_rate=5e-5
+                )
             )
         )
-    )
 
-    train_loss = tf.keras.metrics.Mean("train_loss", dtype=tf.float32)
+        train_loss = tf.keras.metrics.Mean("train_loss", dtype=tf.float32)
 
-    writer = tf.summary.create_file_writer("tmp")
-    with writer.as_default():
-        with tf.summary.record_if(True):
-            for epoch in range(hp.num_epochs):
-                for step, batch_features in enumerate(training_dataset):
-                    batch_features = tf.expand_dims(batch_features, axis=1)
-                    autoencoder_train(
-                        autoencoder_loss_fn,
-                        autoencoder,
-                        optimizer,
-                        batch_features,
-                        train_loss,
-                    )
-                tf.summary.scalar("loss", train_loss.result(), step=epoch)
+        # writer = tf.summary.create_file_writer("tmp")
+        # with writer.as_default():
+        # with tf.summary.record_if(True):
+        for epoch in range(hp.num_epochs):
+            for step, batch_features in enumerate(training_dataset):
+                batch_features = tf.expand_dims(batch_features, axis=1)
+                autoencoder_train(
+                    autoencoder_loss_fn,
+                    autoencoder,
+                    optimizer,
+                    batch_features,
+                    train_loss,
+                )
+            tf.summary.scalar("loss", train_loss.result(), step=epoch)
+            if not ARGS.no_save:
+                save_name = "epoch_{}".format(epoch)
+                autoencoder.save_weights(
+                    filepath=checkpoint_path + os.sep + save_name, save_format="tf"
+                )
+            template = "Epoch {}, Loss {:.8f}"
+            tf.print(
+                template.format(epoch + 1, train_loss.result()),
+                output_stream="file://{}/loss.log".format(logs_path),
+            )
+            train_loss.reset_states()
 
-                template = "Epoch {}, Loss {:.8f}"
-                print(template.format(epoch + 1, train_loss.result()))
-                train_loss.reset_states()
+    if ARGS.classifier:
+        merged_df = pd.read_csv(
+            "./data/{}_clinical.csv".format(ARGS.omics_data.split("/")[-1][:-4]),
+            index_col=0,
+        ).astype("float32")
+        X, Y = merged_df.iloc[:, :-1], merged_df.iloc[:, -1]
+        tf.convert_to_tensor(X)
+        tf.convert_to_tensor(Y)
+        X = tf.expand_dims(X, axis=1)
+        Y = tf.expand_dims(Y, axis=1)
 
-    if ARGS.predict:
+        # clinical data contains 41 features
+        X_omics = X[:, :, :-41]
+        X_clinical = X[:, :, -41:]
+        X_omics = autoencoder.encoder(X_omics)
+        X = tf.concat([X_omics, X_clinical], axis=2)
+        X, Y = X.numpy().reshape(-1, hp.intermediate_dim + 41), Y.numpy().reshape(-1,)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, Y, stratify=Y, shuffle=True
+        )
+
         if ARGS.classifier_model == "vanilla_classifier":
             classifier = vanilla_classifier(input_shape=[hp.intermediate_dim])
-        # elif ARGS.classifier_model == "denoise_autoencoder":
-        # model = denoise_autoencoder(
-        # intermediate_dim=hp.intermediate_dim, input_dim=num_features
-        # )
-        else:
-            print("Wrong model!")
 
-        merged_df = pd.read_csv("merged.csv", index_col=0).astype("float32")
-        X, Y = merged_df.iloc[:, :-1], merged_df.iloc[:, -1]
+        elif ARGS.classifier_model == "xgbclassifier":
+            classifier = XGBClassifier()
+            classifier.fit(X_train, y_train)
+            classifier.score(X_test, y_test)
+            pred_prob = classifier.predict_proba(X_test)
+            pred_prob = [point[1] for point in pred_prob]
+
+            fpr, tpr, thresholds = roc_curve(y_test, pred_prob)
+            plot_roc_curve(classifier, X_test, y_test)
+            plt.show()
+            print("Thresholds: ")
+            print(thresholds)
+
+        elif ARGS.classifier_model == "logisticregression":
+            classifier = LogisticRegression()
+            hyparams_logreg = dict(
+                penalty=["l2", "none"],
+                C=np.linespace(0.001, 1000),
+                solver=["newton-cg", "lbfgs", "sag"],
+                max_iter=[5000],
+            )
+        elif ARGS.classifier_model == "randomforest":
+            classifier = RandomForestClassifier()
+            hyparams_forest = dict(
+                n_estimators=list(range(50, 1050, 50)),
+                criterion=["gini", "entropy"],
+                max_depth=list(range(1, 101)),
+                min_samples_split=list(range(1, 101)),
+                max_features=["sqrt", "log2", "None"],
+                boostrap=[True, False],
+            )
+        else:
+            sys.exit("Wrong model for classifier!")
+
+        """
         training_dataset = tf.data.Dataset.from_tensor_slices((X, Y))
         training_dataset = training_dataset.batch(hp.batch_size)
         training_dataset = training_dataset.shuffle(merged_df.shape[0])
         training_dataset = training_dataset.prefetch(hp.batch_size * 4)
 
-        with writer.as_default():
-            with tf.summary.record_if(True):
-                for epoch in range(hp.num_epochs):
-                    preds, labels = [], []
-                    for step, batch_features in enumerate(training_dataset):
-                        code = autoencoder.encoder(
-                            tf.expand_dims(batch_features[0], axis=1)
-                        )
-                        pred = classifier_train(
-                            classifier_loss_fn,
-                            classifier,
-                            optimizer,
-                            code,
-                            batch_features[1],
-                            train_loss,
-                        )
-                        preds.extend(pred.numpy().tolist())
-                        labels.extend(batch_features[1].numpy().tolist())
-                    preds = np.array(preds).reshape(-1)
-                    labels = np.array(labels).reshape(-1)
-                    acc = np.sum(preds == labels) / len(preds)
-                    tf.summary.scalar("loss", train_loss.result(), step=epoch)
+        # with writer.as_default():
+        #     with tf.summary.record_if(True):
+        for epoch in range(hp.num_epochs):
+            preds, labels = [], []
+            for step, batch_features in enumerate(training_dataset):
+                pred = classifier_train(
+                    classifier_loss_fn,
+                    classifier,
+                    optimizer,
+                    code,
+                    batch_features[1],
+                    train_loss,
+                )
+                preds.extend(pred.numpy().tolist())
+                labels.extend(batch_features[1].numpy().tolist())
+            preds = np.array(preds).reshape(-1)
+            labels = np.array(labels).reshape(-1)
+            acc = np.sum(preds == labels) / len(preds)
+            tf.summary.scalar("loss", train_loss.result(), step=epoch)
 
-                    template = "Epoch {}, Loss: {:.8f}, Acc: {:.4f}"
-                    print(template.format(epoch + 1, train_loss.result(), acc))
+            template = "Epoch {}, Loss: {:.8f}, Acc: {:.4f}"
+            tf.print(
+                template.format(epoch + 1, train_loss.result(), acc),
+                output_stream="file://{}/loss.log".format(logs_path),
+            )
 
-                    train_loss.reset_states()
+            train_loss.reset_states()
+        """
 
 
 if __name__ == "__main__":
