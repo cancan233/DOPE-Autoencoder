@@ -67,8 +67,8 @@ class convolutional_encoder(tf.keras.layers.Layer):
         self.hidden_layer = tf.keras.Sequential(
             [
                 Conv1D(256, 5, 1, padding="same", activation="relu"),
-                Conv1d(128, 5, 1, padding="same", activation="relu"),
-                conv1d(64, 5, 1, padding="same", activation="relu"),
+                Conv1D(128, 5, 1, padding="same", activation="relu"),
+                Conv1D(64, 5, 1, padding="same", activation="relu"),
             ]
         )
         self.output_layer = Dense(units=latent_dim, activation=sigmoid)
@@ -101,12 +101,10 @@ class convolutional_decoder(tf.keras.layers.Layer):
 class convolutional_autoencoder(tf.keras.Model):
     def __init__(self, latent_dim, input_dim):
         super(convolutional_autoencoder, self).__init__()
-        self.convolutional_encoder = convolutional_encoder(latent_dim=latent_dim)
-        self.convolutional_decoder = convolutional_decoder(
-            latent_dim=latent_dim, input_dim=input_dim
-        )
+        self.encoder = convolutional_encoder(latent_dim=latent_dim)
+        self.decoder = convolutional_decoder(latent_dim=latent_dim, input_dim=input_dim)
 
     def call(self, input_features):
-        code = self.convolutional_encoder(input_features)
-        decode = self.convolutional_decoder(code)
-        return decoe
+        code = self.encoder(input_features)
+        decode = self.decoder(code)
+        return decode

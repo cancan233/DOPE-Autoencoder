@@ -1,11 +1,16 @@
 import os
+import sys
 import argparse
 import pandas as pd
 import datetime
 import tensorflow as tf
 import numpy as np
 import hyperparameters as hp
-from autoencoders import vanilla_autoencoder, denoise_autoencoder
+from autoencoders import (
+    vanilla_autoencoder,
+    denoise_autoencoder,
+    convolutional_autoencoder,
+)
 from classifiers import vanilla_classifier
 
 # diable all debugging logs
@@ -87,6 +92,7 @@ def autoencoder_train(loss_fn, model, optimizer, input_features, train_loss):
 
 def classifier_loss_fn(model, input_features, label_features):
     pred = model(input_features)
+    pred = tf.reshape(pred, (-1,))
     loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)(pred, label_features)
     return loss, pred
 
@@ -132,8 +138,12 @@ def main():
         autoencoder = denoise_autoencoder(
             latent_dim=hp.intermediate_dim, input_dim=num_features
         )
+    elif ARGS.autoencoder_model == "convolutional_autoencoder":
+        autoencoder = convolutional_autoencoder(
+            latent_dim=hp.intermediate_dim, input_dim=num_features
+        )
     else:
-        print("Wrong model!")
+        sys.exit("Wrong model for autoencoder!")
 
     optimizer = tf.keras.optimizers.Adam(
         (
@@ -150,6 +160,7 @@ def main():
         with tf.summary.record_if(True):
             for epoch in range(hp.num_epochs):
                 for step, batch_features in enumerate(training_dataset):
+                    batch_features = tf.expand_dims(batch_features, axis=1)
                     autoencoder_train(
                         autoencoder_loss_fn,
                         autoencoder,
@@ -185,7 +196,9 @@ def main():
                 for epoch in range(hp.num_epochs):
                     preds, labels = [], []
                     for step, batch_features in enumerate(training_dataset):
-                        code = autoencoder.encoder(batch_features[0])
+                        code = autoencoder.encoder(
+                            tf.expand_dims(batch_features[0], axis=1)
+                        )
                         pred = classifier_train(
                             classifier_loss_fn,
                             classifier,
@@ -194,7 +207,6 @@ def main():
                             batch_features[1],
                             train_loss,
                         )
-                        # loss_values, pred = loss_fn(classifier, code, batch_features[1])
                         preds.extend(pred.numpy().tolist())
                         labels.extend(batch_features[1].numpy().tolist())
                     preds = np.array(preds).reshape(-1)

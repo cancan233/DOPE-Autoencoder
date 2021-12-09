@@ -8,8 +8,8 @@ The Research Project Assessment can be found [here](https://docs.google.com/docu
 | Completion 	|             Task            	| Due Date 	|
 |:----------:	|:---------------------------:	|:--------:	|
 |      Y     	|      Project team plan      	|   10/01  	|
-|      Y     	|      [Literature Review](./literature_review/main.pdf)      	|   10/15  	|
-|      N     	|         First draft         	|   10/28  	|
+|      Y     	|      [Literature Review](./literature_review.pdf)      	|   10/15  	|
+|      N     	|         [First draft](./write/first_draft.pdf)         	|   10/28  	|
 |      N     	|  Project pitch presentation 	|   11/02  	|
 |      N     	|       Project check-in      	|   11/23  	|
 |      N     	|         Second draft        	|   12/07  	|
