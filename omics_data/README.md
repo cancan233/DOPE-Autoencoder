@@ -1,4 +1,4 @@
-# Omics dataset
+# Omics dataset TCGA
 
 ## Download dataset
 The jupyter notebook `omics_data_preparation.ipynb` provides way to download the four types omics data and proprocess procedure. 
@@ -43,5 +43,28 @@ The data preprocess follows the steps same as [Hira et al.](https://www.nature.c
 <figure>
     <img src="./preprocess_flowchart.png " alt="summary_data">
     <figcaption>Data preprocessing with di- and tri-omics data generation. The figure is taken from Hira's paper. Thus the feature number and sample number might be different.</figcaption>
-</figure>   
+</figure>
 
+
+# Omics dataset GDC TCGA
+
+## Download dataset
+
+```bash
+# copy number (gene-level)
+wget -O cnv.tsv.gz https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-OV.gistic.tsv.gz
+
+# DNA methylation
+wget -O dnamethyl.tsv.gz https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-OV.methylation27.tsv.gz
+
+# gene expression RNAseq
+wget -O rnaseq.tsv.gz https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-OV.htseq_counts.tsv.gz
+
+gunzip *
+```
+
+## Preprocess dataset
+
+```bash
+python preprocess.py
+```

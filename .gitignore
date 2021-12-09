@@ -2,6 +2,7 @@
 .DS_Store
 .vscode/
 omics_data/*.csv
+codes/*.csv
 */tmp/
 
 # Byte-compiled / optimized / DLL files
