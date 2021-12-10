@@ -52,15 +52,6 @@ class vanilla_autoencoder(tf.keras.Model):
         return decode
 
 
-class denoise_autoencoder(tf.keras.Model):
-    def __init__(self, latent_dim, input_dim):
-        super(denoise_autoencoder, self).__init__()
-        pass
-
-    def call(self, input_features):
-        pass
-
-
 class convolutional_encoder(tf.keras.layers.Layer):
     def __init__(self, latent_dim):
         super(convolutional_encoder, self).__init__()
@@ -108,3 +99,29 @@ class convolutional_autoencoder(tf.keras.Model):
         code = self.encoder(input_features)
         decode = self.decoder(code)
         return decode
+
+
+class Sampling(tf.keras.layers.Layer):
+    def __init__(self):
+        super(Sampling, self).__init__()
+
+    def call(self, inputs):
+        z_mean, z_log_var = inputs
+        batch = tf.shape(z_mean)[0]
+        dim = tf.shape(z_mean)[1]
+        epsilon = tf.keras.backend.random_normal(shape=(batch, dim))
+        return z_mean + tf.exp(0.5 * z_log_var) * epsilon
+
+
+class variational_encoder(tf.keras.layers.Layer):
+    def __init__(self,):
+        pass
+
+
+class variational_decoder(tf.keras.layers.Layer):
+    def __init__(self,):
+        pass
+
+
+class variational_autoencoder:
+    pass

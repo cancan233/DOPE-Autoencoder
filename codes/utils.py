@@ -1,67 +1,94 @@
-import pandas as pd
-import numpy as np
-import glob
-import os
+from sklearn.model_selection import train_test_split, RandomizedSearchCV, GridSearchCV
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+from sklearn.metrics import (
+    roc_curve,
+    roc_auc_score,
+    confusion_matrix,
+    classification_report,
+    auc,
+    precision_recall_curve,
+)
 
 
-def merge_omics_clinical(omic_df, clinical_df, uuid2barcode, merged_name):
-    (num_patients, num_features) = omic_df.shape
+def rs_cv_fit_score(model, hyparams, X_train, y_train):
+    best_clf = GridSearchCV(model, hyparams, scoring="accuracy", n_jobs=-1, cv=5)
+    best_clf.fit(X_train, y_train)
+    print("Best Parameters - ", best_clf.best_params_)
+    print("Accuracy - %0.2f" % best_clf.best_score_ * 100)
+    return best_clf
+
+
+def plot_roc_curves(best_clf, X_test, y_test):
+    y_predict_prob = best_clf.predict_proba(X_test)[::, 1]
+    fpr, tpr, thresholds = roc_curve(y_test, y_predict_prob)
+    roc_auc = roc_auc_score(y_test, y_predict_prob)
+
+    plt.plot(fpr, tpr, label="AUC=" + str(round(roc_auc, 2)))
+    plt.ylabel("True Positive Rate")
+    plt.xlabel("False Positive Rate")
+    plt.legend(loc=4)
+    plt.show()
+    return y_predict_prob, tpr, fpr, roc_auc
+
+
+# plots 95 % confidence interval for AUC ROC
+def plot_conf_int(y_predict_prob, y_test):
+    y_pred = np.array(y_predict_prob)
+    y_true = np.array(y_test)
+
+    print("Original ROC area: {:0.3f}".format(roc_auc_score(y_true, y_pred)))
+
+    n_bootstraps = 1000
+    rng_seed = 42
+    bootstrapped_scores = []
+
+    rng = np.random.RandomState(rng_seed)
+    for i in range(n_bootstraps):
+        # bootstrap by sampling with replacement on the prediction indices
+        indices = rng.randint(0, len(y_pred), len(y_pred))
+        if len(np.unique(y_true[indices])) < 2:
+            # We need at least one positive and one negative sample for ROC AUC
+            # to be defined: reject the sample
+            continue
+
+        score = roc_auc_score(y_true[indices], y_pred[indices])
+        bootstrapped_scores.append(score)
+    # print("Bootstrap #{} ROC area: {:0.3f}".format(i + 1, score))
+
+    plt.hist(bootstrapped_scores, bins=50)
+    plt.title("Histogram of the Bootstrapped ROC AUC scores")
+    plt.show()
+
+    sorted_scores = np.array(bootstrapped_scores)
+    sorted_scores.sort()
+
+    confidence_lower = sorted_scores[int(0.025 * len(sorted_scores))]
+    confidence_upper = sorted_scores[int(0.975 * len(sorted_scores))]
     print(
-        f"Number of features: {num_features} \t Number of patients: {num_patients} in omics data"
+        "Confidence interval for the score: [{:0.3f} - {:0.3}]".format(
+            confidence_lower, confidence_upper
+        )
     )
 
-    (num_patients, num_features) = clinical_df.shape
-    print(
-        f"Number of features: {num_features} \t Number of patients: {num_patients} in clinical data"
-    )
 
-    # change uuid to barcode
-    clinical_df["bcr_patient_barcode"] = "TEST"
-    for i in range(clinical_df.shape[0]):
-        if clinical_df["bcr_patient_uuid"][i] in uuid2barcode:
-            clinical_df["bcr_patient_barcode"][i] = (
-                uuid2barcode[clinical_df["bcr_patient_uuid"][i]] + "-01"
-            )
-        else:
-            clinical_df["bcr_patient_barcode"][i] = None
-    clinical_df.drop(columns=["bcr_patient_uuid"], inplace=True)
-
-    # Temporary only take the "treatment_outcome_first_course_x" data
-    target_df = clinical_df
-    target_df = target_df.drop_duplicates()
-    target_df = target_df.set_index("bcr_patient_barcode")
-
-    merged_df = pd.merge(omic_df, target_df, left_index=True, right_index=True)
-    merged_df.to_csv("./data/{}".format(merged_name))
+# plots precision recall curve
+def plot_pr_curve(y_predict_prob, y_test):
+    precision, recall, thresholds = precision_recall_curve(y_test, y_predict_prob)
+    pr_auc = auc(recall, precision)
+    pr_no_skill = len(y_test[y_test == 1]) / len(y_test)
+    plt.plot([0, 1], [pr_no_skill, pr_no_skill], linestyle="--")
+    plt.plot(recall, precision, label="AUC=" + str(round(pr_auc, 2)))
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.legend(loc=4)
+    plt.show()
+    return precision, recall, pr_auc
 
 
-def dict_uuid2barcode():
-    uuid2barcode = {}
-    path = "../biomed_clinic_data/csv_data"
-    all_files = glob.glob(os.path.join(path, "*.csv"))
-    for f in all_files:
-        df = pd.read_csv(f, sep=",")
-        if "bcr_patient_uuid" in df and "bcr_patient_barcode" in df:
-            for i in range(2, df.shape[0]):
-                if df["bcr_patient_uuid"][i] not in uuid2barcode:
-                    uuid2barcode[df["bcr_patient_uuid"][i]] = df["bcr_patient_barcode"][
-                        i
-                    ]
-    return uuid2barcode
-
-
-def main():
-    omic = "cnv_methyl_mrna"
-    merged_name = "{}_clinical.csv".format(omic)
-    print("merging {} and clinical data".format(omic))
-    omic_df = pd.read_csv("../omics_data/{}.csv".format(omic), index_col=0).T
-    omic_df = omic_df.astype("float32")
-    clinical_df = (
-        pd.read_csv("./data/clinical.csv", index_col=0).drop_duplicates().reset_index()
-    )
-    uuid2barcode = dict_uuid2barcode()
-    merge_omics_clinical(omic_df, clinical_df, uuid2barcode, merged_name)
-
-
-if __name__ == "__main__":
-    main()
+# outputs classification report
+def show_classification_report(best_clf):
+    y_predict = best_clf.predict(X_test)
+    confusion_matrix(y_test, y_predict)
+    print(classification_report(y_test, y_predict))

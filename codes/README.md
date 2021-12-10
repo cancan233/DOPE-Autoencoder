@@ -16,4 +16,4 @@ python run.py --model vanilla_autoencoder\
 ``` -->
 
 ## Reference
-1. https://gist.github.com/RomanSteinberg/c4a47470ab1c06b0c45fa92d07afe2e3
+1. VAE: https://gist.github.com/RomanSteinberg/c4a47470ab1c06b0c45fa92d07afe2e3

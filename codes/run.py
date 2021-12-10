@@ -8,7 +8,7 @@ import numpy as np
 import hyperparameters as hp
 from autoencoders import (
     vanilla_autoencoder,
-    denoise_autoencoder,
+    variational_autoencoder,
     convolutional_autoencoder,
 )
 from classifiers import vanilla_classifier
@@ -16,9 +16,12 @@ from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import roc_curve, plot_roc_curve, roc_auc_score
+from sklearn.svm import SVC
+from sklearn.metrics import roc_curve, roc_auc_score, plot_roc_curve
 
 import matplotlib.pyplot as plt
+import matplotlib
+from utils import *
 
 # diable all debugging logs
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -206,6 +209,7 @@ def main():
             train_loss.reset_states()
 
     if ARGS.classifier:
+        print("===== start classifier preprocess =====")
         merged_df = pd.read_csv(
             "./data/{}_clinical.csv".format(ARGS.omics_data.split("/")[-1][:-4]),
             index_col=0,
@@ -222,8 +226,9 @@ def main():
         X_omics = autoencoder.encoder(X_omics)
         X = tf.concat([X_omics, X_clinical], axis=2)
         X, Y = X.numpy().reshape(-1, hp.intermediate_dim + 41), Y.numpy().reshape(-1,)
+
         X_train, X_test, y_train, y_test = train_test_split(
-            X, Y, stratify=Y, shuffle=True
+            X, Y, test_size=0.2, random_state=42
         )
 
         if ARGS.classifier_model == "vanilla_classifier":
@@ -260,6 +265,131 @@ def main():
                 max_features=["sqrt", "log2", "None"],
                 boostrap=[True, False],
             )
+        elif ARGS.classifier_model == "all":
+            print("===== start XGB =====")
+            xgb = XGBClassifier(random_state=42)
+            xgb.fit(X_train, y_train)
+            print("===== start RandomForest =====")
+            forest = RandomForestClassifier(random_state=42)
+            forest.fit(X_train, y_train)
+            print("===== start LogisticRegression =====")
+            logreg = LogisticRegression(random_state=42)
+            logreg.fit(X_train, y_train)
+            print("===== start SVC =====")
+            svc = SVC(random_state=42)
+            svc.fit(X_train, y_train)
+
+            print("===== start plotting results =====")
+
+            font = {"family": "normal", "weight": "bold", "size": 10}
+            matplotlib.rc("font", **font)
+
+            xgb_disp = plot_roc_curve(xgb, X_test, y_test)
+            forest_disp = plot_roc_curve(forest, X_test, y_test, ax=xgb_disp.ax_)
+            logreg_disp = plot_roc_curve(logreg, X_test, y_test, ax=xgb_disp.ax_)
+            svc_disp = plot_roc_curve(svc, X_test, y_test, ax=xgb_disp.ax_)
+            svc_disp.figure_.suptitle("ROC curve comparison")
+
+            plt.savefig("omics_clinical_classifers.png", dpi=300)
+
+        elif ARGS.classifer_model == "all_optimization":
+
+            print("===== start xgb optimization =====")
+            xgb = XGBClassifier()
+            hyparams_xgb = dict(
+                booster=["gbtree", "gblinear", "dart"],
+                eta=np.linspace(0, 1),
+                max_depth=list(range(1, 51)),
+                min_child_weight=list(range(1, 51)),
+                subsample=np.linspace(0, 1),
+                colsample_bytree=np.linspace(0, 1),
+            )
+            best_xgb = rs_cv_fit_score(xgb, hyparams_xgb, X_train, y_train)
+            y_pred_xgb, tpr_xgb, fpr_xgb, roc_auc_xgb = plot_roc_curve(
+                best_xgb, X_test, y_test
+            )
+            print("===== start xgb optimization =====")
+            plot_conf_int(y_pred_xgb, y_test)
+            show_classification_report(best_xgb, X_test, y_test)
+
+            print("===== start randomforest optimization =====")
+            forest = RandomForestClassifier()
+            hyparams_forest = dict(
+                n_estimators=list(range(50, 1050, 50)),
+                criterion=["gini", "entropy"],
+                max_depth=list(range(1, 101)),
+                min_samples_split=list(range(1, 101)),
+                max_features=["sqrt", "log2", "None"],
+                bootstrap=[True, False],
+            )
+            best_forest = rs_cv_fit_score(forest, hyparams_forest, X_train, y_train)
+            y_pred_forest, tpr_forest, fpr_forest, roc_auc_forest = plot_roc_curve(
+                best_forest, X_test, y_test
+            )
+            show_classification_report(best_forest, X_test, y_test)
+
+            print("===== start logisticregression optimization =====")
+            logreg = LogisticRegression()
+            hyparams_logreg = dict(
+                penalty=["l2", "none"],
+                C=np.linspace(0.001, 1000),
+                solver=["newton-cg", "lbfgs", "sag"],
+                max_iter=[5000],
+            )
+            best_logreg = rs_cv_fit_score(logreg, hyparams_logreg, X_train, y_train)
+            y_pred_logreg, tpr_logreg, fpr_logreg, roc_auc_logreg = plot_roc_curve(
+                best_logreg, X_test, y_test
+            )
+            plot_conf_int(y_pred_logreg, y_test, y_test)
+            show_classification_report(best_logreg, X_test, y_test)
+
+            print("===== start plotting results =====")
+            scores = pd.DataFrame()
+            scores["Model"] = ["Logistic Regression", "Random Forest", "XGBoost"]
+            scores["Accuracy"] = [
+                round(best_logreg.best_score_, 4),
+                round(best_forest.best_score_, 4),
+                round(best_xgb.best_score_, 4),
+            ]
+            scores.sort_values(by="Accuracy", ascending=False)
+            roc_no_skill = [0 for entry in range(len(y_test))]
+            roc_auc_no_skill = roc_auc_score(y_test, roc_no_skill)
+            fpr_no_skill, tpr_no_skill, thresholds_no_skill = roc_curve(
+                y_test, roc_no_skill
+            )
+            plt.plot(fpr_no_skill, tpr_no_skill, linestyle="--")
+            plt.plot(
+                fpr_logreg,
+                tpr_logreg,
+                label="AUC=" + str(round(roc_auc_logreg, 4)) + " - Log Reg",
+            )
+            plt.plot(
+                fpr_forest,
+                tpr_forest,
+                label="AUC=" + str(round(roc_auc_forest, 4)) + " - Rand For",
+            )
+            plt.plot(
+                fpr_xgb,
+                tpr_xgb,
+                label="AUC=" + str(round(roc_auc_xgb, 4)) + " - XGBoost",
+            )
+            plt.title("ROC Curves")
+            plt.ylabel("True Positive Rate")
+            plt.xlabel("False Positive Rate")
+            plt.legend(loc=4)
+            plt.show()
+
+            skf = StratifiedKFold(n_splits=4, shuffle=True)
+            models = [("lr", best_logreg), ("rf", best_forest), ("xgb", best_xgb)]
+            stacked_clf = StackingClassifier(
+                estimators=models, final_estimator=XGBClassifier()
+            )
+            cv_scores = cross_val_score(
+                stacked_clf, X_train, y_train, scoring="accuracy", cv=skf
+            )
+            cv_scores
+            print("Accuracy - %0.2f" % (cv_scores.mean()))
+
         else:
             sys.exit("Wrong model for classifier!")
 
