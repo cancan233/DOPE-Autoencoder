@@ -2,8 +2,13 @@ import os
 import sys
 import argparse
 import pandas as pd
-import datetime
+from datetime import datetime
+
+# diable all debugging logs
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
 import tensorflow as tf
+
 import numpy as np
 import hyperparameters as hp
 from autoencoders import (
@@ -13,7 +18,7 @@ from autoencoders import (
 )
 from classifiers import vanilla_classifier
 from xgboost import XGBClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
@@ -22,9 +27,6 @@ from sklearn.metrics import roc_curve, roc_auc_score, plot_roc_curve
 import matplotlib.pyplot as plt
 import matplotlib
 from utils import *
-
-# diable all debugging logs
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 
 def parse_args():
@@ -36,44 +38,40 @@ def parse_args():
     )
     parser.add_argument(
         "--autoencoder-model",
-        default="vanilla_autoencoder",
-        help="types of model to use, vanilla_autoencoder, ",
+        default="vanilla",
+        help="types of model to use, vanilla, convolutional, variational",
     )
     parser.add_argument(
         "--classifier-model",
-        default="vanilla_classifier",
-        help="types of model to use, vanilla_classifier, ",
+        default="all",
+        help="types of model to use, all, xgb, rforest, logreg",
     )
     parser.add_argument(
         "--omics-data",
         default=".." + os.sep + "omics_data" + os.sep + "cnv_methyl_rnaseq.csv",
         help="omics data file name",
     )
-    # parser.add_argument("--biomed-data", default=None, help="biomed data file name")
+    parser.add_argument("--biomed-data", default=None, help="biomed data file name")
     parser.add_argument("--merged-data", default=None, help="merged data file name")
-    parser.add_argument(
-        "--no-save",
-        action="store_true",
-        help="not save the checkpoints, logs and model. Used only for develop purpose",
-    )
     parser.add_argument(
         "--load-autoencoder",
         default=None,
         help="path to model checkpoint file, should be similar to ./output/checkpoints/041721-201121/epoch19",
     )
     parser.add_argument(
-        "--classifier",
-        action="store_true",
-        help="use the trained autoencoder to predict the outcome.",
-    )
-    parser.add_argument(
-        "--evaluate",
-        action="store_true",
-        help="skips training. evaluates the performance of the trained model.",
-    )
-    parser.add_argument(
         "--train-autoencoder", action="store_true", help="train the autoencoder"
     )
+    parser.add_argument(
+        "--no-save",
+        action="store_true",
+        help="not save the checkpoints, logs and model. Used only for develop purpose",
+    )
+    parser.add_argument(
+        "--train-classifier",
+        default="merged",
+        help="data for train the classifier, merged or biomed",
+    )
+
     return parser.parse_args()
 
 
@@ -103,6 +101,7 @@ def autoencoder_train(loss_fn, model, optimizer, input_features, train_loss):
         train_loss(loss)
 
 
+"""
 def classifier_loss_fn(model, input_features, label_features):
     pred = model(input_features)
     pred = tf.reshape(pred, (-1,))
@@ -120,10 +119,11 @@ def classifier_train(
 
         train_loss(loss)
     return pred
+"""
 
 
 def main():
-    time_now = datetime.datetime.now()
+    time_now = datetime.now()
     timestamp = time_now.strftime("%m%d%y-%H%M%S")
 
     gpus = tf.config.list_physical_devices("GPU")
@@ -136,15 +136,28 @@ def main():
 
     checkpoint_path = "./output/checkpoints" + os.sep + timestamp + os.sep
     logs_path = "./output/logs" + os.sep + timestamp + os.sep
+
+    if not ARGS.no_save:
+        print("checkpoint file saved at {}".format(checkpoint_path))
+        print("log file save as {}".format(logs_path))
+
     logs_path = os.path.abspath(logs_path)
 
-    if not os.path.exists(checkpoint_path) and not os.path.exists(logs_path):
+    if (
+        not os.path.exists(checkpoint_path)
+        and not os.path.exists(logs_path)
+        and ARGS.train_autoencoder
+    ):
         os.makedirs(checkpoint_path)
         os.makedirs(logs_path)
 
     omics_data = pd.read_csv(ARGS.omics_data, index_col=0).T.astype("float32")
     (num_patients, num_features) = omics_data.shape
-    # print(num_patients, num_features)
+    print(
+        "{} contains {} patients with {} features".format(
+            ARGS.omics_data.split("/")[-1], num_patients, num_features
+        )
+    )
 
     tf.convert_to_tensor(omics_data)
     omics_data = tf.expand_dims(omics_data, axis=1)
@@ -153,17 +166,21 @@ def main():
     training_dataset = training_dataset.shuffle(num_patients)
     training_dataset = training_dataset.prefetch(hp.batch_size * 4)
 
-    if ARGS.autoencoder_model == "vanilla_autoencoder":
+    if ARGS.autoencoder_model == "vanilla":
         autoencoder = vanilla_autoencoder(
-            latent_dim=hp.intermediate_dim, input_dim=num_features
+            latent_dim=hp.latent_dim,
+            intermediate_dim=hp.intermediate_dim,
+            original_dim=num_features,
         )
-    elif ARGS.autoencoder_model == "denoise_autoencoder":
-        autoencoder = denoise_autoencoder(
-            latent_dim=hp.intermediate_dim, input_dim=num_features
-        )
-    elif ARGS.autoencoder_model == "convolutional_autoencoder":
+    elif ARGS.autoencoder_model == "convolutional":
         autoencoder = convolutional_autoencoder(
-            latent_dim=hp.intermediate_dim, input_dim=num_features
+            latent_dim=hp.latent_dim, original_dim=num_features,
+        )
+    elif ARGS.autoencoder_model == "variational":
+        autoencoder = variational_autoencoder(
+            original_dim=num_features,
+            intermediate_dim=hp.intermediate_dim,
+            latent_dim=hp.latent_dim,
         )
     else:
         sys.exit("Wrong model for autoencoder!")
@@ -182,12 +199,8 @@ def main():
 
         train_loss = tf.keras.metrics.Mean("train_loss", dtype=tf.float32)
 
-        # writer = tf.summary.create_file_writer("tmp")
-        # with writer.as_default():
-        # with tf.summary.record_if(True):
         for epoch in range(hp.num_epochs):
             for step, batch_features in enumerate(training_dataset):
-                batch_features = tf.expand_dims(batch_features, axis=1)
                 autoencoder_train(
                     autoencoder_loss_fn,
                     autoencoder,
@@ -206,36 +219,60 @@ def main():
                 template.format(epoch + 1, train_loss.result()),
                 output_stream="file://{}/loss.log".format(logs_path),
             )
+            print(template.format(epoch + 1, train_loss.result()))
             train_loss.reset_states()
 
-    if ARGS.classifier:
+    if ARGS.train_classifier:
         print("===== start classifier preprocess =====")
-        merged_df = pd.read_csv(
-            "./data/{}_clinical.csv".format(ARGS.omics_data.split("/")[-1][:-4]),
-            index_col=0,
-        ).astype("float32")
-        X, Y = merged_df.iloc[:, :-1], merged_df.iloc[:, -1]
-        tf.convert_to_tensor(X)
-        tf.convert_to_tensor(Y)
-        X = tf.expand_dims(X, axis=1)
-        Y = tf.expand_dims(Y, axis=1)
+        if ARGS.train_classifier == "merged":
+            merged_df = pd.read_csv(ARGS.merged_data, index_col=0)
+            X, Y = merged_df.iloc[:, :-1], merged_df.iloc[:, -1]
+            tf.convert_to_tensor(X)
+            tf.convert_to_tensor(Y)
 
-        # clinical data contains 41 features
-        X_omics = X[:, :, :-41]
-        X_clinical = X[:, :, -41:]
-        X_omics = autoencoder.encoder(X_omics)
-        X = tf.concat([X_omics, X_clinical], axis=2)
-        X, Y = X.numpy().reshape(-1, hp.intermediate_dim + 41), Y.numpy().reshape(-1,)
+            # clinical data contains 41 features
+            X_omics = X[:, :-41]
+            X_clinical = X[:, -41:]
+            X_omics = autoencoder.encoder(X_omics)
+            X = tf.concat([X_omics, X_clinical], axis=2)
+            X, Y = (
+                X.numpy().reshape(-1, hp.intermediate_dim + 41),
+                Y.numpy().reshape(-1,),
+            )
+        elif ARGS.train_classifier == "biomed":
+            # biomed_df = pd.read_csv()
+            pass
 
         X_train, X_test, y_train, y_test = train_test_split(
             X, Y, test_size=0.2, random_state=42
         )
-
-        if ARGS.classifier_model == "vanilla_classifier":
+        print(
+            "X_train:{} \n X_test:{}\n Y_train: {}\n Y_test: {}".format(
+                X_train.shape, X_test.shape, y_train.shape, y_test.shape
+            )
+        )
+        if ARGS.classifier_model == "vanilla_nn":
             classifier = vanilla_classifier(input_shape=[hp.intermediate_dim])
 
-        elif ARGS.classifier_model == "xgbclassifier":
-            classifier = XGBClassifier()
+        elif ARGS.classifier_model == "xgboost":
+            xgb = XGBClassifier()
+
+            xgb_params = {
+                "booster": ["gbtree", "gblinear", "dart"],
+                "n_estimators": [50, 100, 300],
+                "max_depth": [3, 5, 7],
+                "learning_rate": [0.1, 0.01, 0.001],
+            }
+
+            xgb_cv_model = GridSearchCV(
+                xgb, xgb_params, cv=3, n_jobs=-1, verbose=2
+            ).fit(X_train, y_train)
+            print(xgb_cv_model.best_params_)
+            xgb_tuned = XGBClassifier(xgb_cv_model.best_params_).fit(X_train, y_train)
+            xgb_disp = plot_roc_curve(xgb, X_test, y_test)
+            plt.show()
+
+            """
             classifier.fit(X_train, y_train)
             classifier.score(X_test, y_test)
             pred_prob = classifier.predict_proba(X_test)
@@ -246,6 +283,7 @@ def main():
             plt.show()
             print("Thresholds: ")
             print(thresholds)
+            """
 
         elif ARGS.classifier_model == "logisticregression":
             classifier = LogisticRegression()
@@ -288,11 +326,11 @@ def main():
             forest_disp = plot_roc_curve(forest, X_test, y_test, ax=xgb_disp.ax_)
             logreg_disp = plot_roc_curve(logreg, X_test, y_test, ax=xgb_disp.ax_)
             svc_disp = plot_roc_curve(svc, X_test, y_test, ax=xgb_disp.ax_)
-            svc_disp.figure_.suptitle("ROC curve comparison")
+            # svc_disp.figure_.suptitle("ROC curve comparison")
 
             plt.savefig("omics_clinical_classifers.png", dpi=300)
 
-        elif ARGS.classifer_model == "all_optimization":
+        elif ARGS.classifier_model == "all_optimization":
 
             print("===== start xgb optimization =====")
             xgb = XGBClassifier()
@@ -305,7 +343,7 @@ def main():
                 colsample_bytree=np.linspace(0, 1),
             )
             best_xgb = rs_cv_fit_score(xgb, hyparams_xgb, X_train, y_train)
-            y_pred_xgb, tpr_xgb, fpr_xgb, roc_auc_xgb = plot_roc_curve(
+            y_pred_xgb, tpr_xgb, fpr_xgb, roc_auc_xgb = plot_roc_curves(
                 best_xgb, X_test, y_test
             )
             print("===== start xgb optimization =====")
@@ -323,7 +361,7 @@ def main():
                 bootstrap=[True, False],
             )
             best_forest = rs_cv_fit_score(forest, hyparams_forest, X_train, y_train)
-            y_pred_forest, tpr_forest, fpr_forest, roc_auc_forest = plot_roc_curve(
+            y_pred_forest, tpr_forest, fpr_forest, roc_auc_forest = plot_roc_curves(
                 best_forest, X_test, y_test
             )
             show_classification_report(best_forest, X_test, y_test)
@@ -337,7 +375,7 @@ def main():
                 max_iter=[5000],
             )
             best_logreg = rs_cv_fit_score(logreg, hyparams_logreg, X_train, y_train)
-            y_pred_logreg, tpr_logreg, fpr_logreg, roc_auc_logreg = plot_roc_curve(
+            y_pred_logreg, tpr_logreg, fpr_logreg, roc_auc_logreg = plot_roc_curves(
                 best_logreg, X_test, y_test
             )
             plot_conf_int(y_pred_logreg, y_test, y_test)

@@ -10,6 +10,21 @@ from sklearn.metrics import (
     auc,
     precision_recall_curve,
 )
+from datetime import datetime
+
+
+def timer(start_time=None):
+    if not start_time:
+        start_time = datetime.now()
+        return start_time
+    else:
+        thour, temp_sec = divmod((datetime.now() - start_time).total_seconds(), 3600)
+        tmin, tsec = divmod(temp_sec, 60)
+        print(
+            "\n Time take: {} hours {} minutes and {} seconds".format(
+                thour, tmin, round(tsec, 2)
+            )
+        )
 
 
 def rs_cv_fit_score(model, hyparams, X_train, y_train):

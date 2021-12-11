@@ -1,5 +1,5 @@
 """
-Hyperparameters used in models
+Hyperparameters used in autoencoder models
 """
 
 """
@@ -26,4 +26,5 @@ batch_size = 4
 """
 encode dimension
 """
-intermediate_dim = 1024
+intermediate_dim = 2048
+latent_dim = 128
