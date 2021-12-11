@@ -6,6 +6,11 @@ from datetime import datetime
 
 # diable all debugging logs
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+import warnings
+from sklearn.exceptions import DataConversionWarning
+
+warnings.filterwarnings(action="ignore", category=DataConversionWarning)
+
 
 import tensorflow as tf
 
@@ -67,7 +72,7 @@ def parse_args():
         help="not save the checkpoints, logs and model. Used only for develop purpose",
     )
     parser.add_argument(
-        "--train-classifier",
+        "--train-classifier-data",
         default="merged",
         help="data for train the classifier, merged or biomed",
     )
@@ -123,6 +128,7 @@ def classifier_train(
 
 
 def main():
+    print("===== starting =====")
     time_now = datetime.now()
     timestamp = time_now.strftime("%m%d%y-%H%M%S")
 
@@ -159,13 +165,6 @@ def main():
         )
     )
 
-    tf.convert_to_tensor(omics_data)
-    omics_data = tf.expand_dims(omics_data, axis=1)
-    training_dataset = tf.data.Dataset.from_tensor_slices(omics_data)
-    training_dataset = training_dataset.batch(hp.batch_size)
-    training_dataset = training_dataset.shuffle(num_patients)
-    training_dataset = training_dataset.prefetch(hp.batch_size * 4)
-
     if ARGS.autoencoder_model == "vanilla":
         autoencoder = vanilla_autoencoder(
             latent_dim=hp.latent_dim,
@@ -189,6 +188,13 @@ def main():
         autoencoder.load_weights(ARGS.load_autoencoder).expect_partial()
 
     if ARGS.train_autoencoder:
+        tf.convert_to_tensor(omics_data)
+        omics_data = tf.expand_dims(omics_data, axis=1)
+        training_dataset = tf.data.Dataset.from_tensor_slices(omics_data)
+        training_dataset = training_dataset.batch(hp.batch_size)
+        training_dataset = training_dataset.shuffle(num_patients)
+        training_dataset = training_dataset.prefetch(hp.batch_size * 4)
+
         optimizer = tf.keras.optimizers.Adam(
             (
                 tf.keras.optimizers.schedules.InverseTimeDecay(
@@ -222,26 +228,112 @@ def main():
             print(template.format(epoch + 1, train_loss.result()))
             train_loss.reset_states()
 
-    if ARGS.train_classifier:
-        print("===== start classifier preprocess =====")
-        if ARGS.train_classifier == "merged":
-            merged_df = pd.read_csv(ARGS.merged_data, index_col=0)
+    if ARGS.train_classifier_data:
+        if " ".join(ARGS.omics_data[:-4].split("/")[-1].split("_")[:3]) != " ".join(
+            ARGS.merged_data[:-4].split("/")[-1].split("_")[:3]
+        ):
+            sys.exit("Wrong omics data for merged data!")
+
+        if ARGS.train_classifier_data == "merged":
+            print("===== classifier preprocess =====")
+            biomed_df = pd.read_csv(ARGS.biomed_data, index_col=0)
+            num_biomed_features = biomed_df.shape[1] - 1
+
+            merged_df = pd.read_csv(ARGS.merged_data, index_col=0).astype("float32")
+
+            print(
+                "{} contains {} patients with {} features".format(
+                    ARGS.merged_data.split("/")[-1],
+                    merged_df.shape[0],
+                    merged_df.shape[1] - 1,
+                )
+            )
             X, Y = merged_df.iloc[:, :-1], merged_df.iloc[:, -1]
             tf.convert_to_tensor(X)
             tf.convert_to_tensor(Y)
+            X = tf.expand_dims(X, axis=1)
+            Y = tf.expand_dims(Y, axis=1)
 
-            # clinical data contains 41 features
-            X_omics = X[:, :-41]
-            X_clinical = X[:, -41:]
-            X_omics = autoencoder.encoder(X_omics)
-            X = tf.concat([X_omics, X_clinical], axis=2)
+            X_omics = X[:, :, :-num_biomed_features]
+            X_biomed = X[:, :, -num_biomed_features:]
+            if ARGS.autoencoder_model == "variational":
+                X_omics = autoencoder.encoder(X_omics)[-1]
+            else:
+                X_omics = autoencoder.encoder(X_omics)
+            print("===== finish omics encoding =====")
+            X = tf.concat([X_omics, X_biomed], axis=2)
             X, Y = (
-                X.numpy().reshape(-1, hp.intermediate_dim + 41),
+                X.numpy().reshape(-1, hp.latent_dim + num_biomed_features),
                 Y.numpy().reshape(-1,),
             )
-        elif ARGS.train_classifier == "biomed":
-            # biomed_df = pd.read_csv()
-            pass
+        elif ARGS.train_classifier_data == "biomed":
+            """
+            print("===== classifier preprocess =====")
+            biomed_df = (
+                pd.read_csv(ARGS.biomed_data, index_col=0)
+                .drop(columns=["bcr_patient_uuid"])
+                .astype("float32")
+                .to_numpy()
+            )
+            X, Y = biomed_df[:, :-1], biomed_df[:, -1]
+            """
+            print("===== classifier preprocess =====")
+            biomed_df = pd.read_csv(ARGS.biomed_data, index_col=0)
+            num_biomed_features = biomed_df.shape[1] - 1
+
+            merged_df = pd.read_csv(ARGS.merged_data, index_col=0).astype("float32")
+
+            print(
+                "{} contains {} patients with {} features".format(
+                    ARGS.merged_data.split("/")[-1],
+                    merged_df.shape[0],
+                    merged_df.shape[1] - 1,
+                )
+            )
+            X, Y = merged_df.iloc[:, :-1], merged_df.iloc[:, -1]
+            tf.convert_to_tensor(X)
+            tf.convert_to_tensor(Y)
+            X = tf.expand_dims(X, axis=1)
+            Y = tf.expand_dims(Y, axis=1)
+
+            X_biomed = X[:, :, -num_biomed_features:]
+
+            X, Y = (
+                X_biomed.numpy().reshape(-1, num_biomed_features),
+                Y.numpy().reshape(-1,),
+            )
+        elif ARGS.train_classifier_data == "omics":
+            print("===== classifier preprocess =====")
+            biomed_df = pd.read_csv(ARGS.biomed_data, index_col=0)
+            num_biomed_features = biomed_df.shape[1] - 1
+
+            merged_df = pd.read_csv(ARGS.merged_data, index_col=0).astype("float32")
+
+            print(
+                "{} contains {} patients with {} features".format(
+                    ARGS.merged_data.split("/")[-1],
+                    merged_df.shape[0],
+                    merged_df.shape[1] - 1,
+                )
+            )
+            X, Y = merged_df.iloc[:, :-1], merged_df.iloc[:, -1]
+            tf.convert_to_tensor(X)
+            tf.convert_to_tensor(Y)
+            X = tf.expand_dims(X, axis=1)
+            Y = tf.expand_dims(Y, axis=1)
+
+            X_omics = X[:, :, :-num_biomed_features]
+            if ARGS.autoencoder_model == "variational":
+                X_omics = autoencoder.encoder(X_omics)[-1]
+            else:
+                X_omics = autoencoder.encoder(X_omics)
+            print("===== finish omics encoding =====")
+            X, Y = (
+                X_omics.numpy().reshape(-1, hp.latent_dim),
+                Y.numpy().reshape(-1,),
+            )
+        else:
+            sys.exit("wrong classifier mode!")
 
         X_train, X_test, y_train, y_test = train_test_split(
             X, Y, test_size=0.2, random_state=42
@@ -253,6 +345,55 @@ def main():
         )
         if ARGS.classifier_model == "vanilla_nn":
             classifier = vanilla_classifier(input_shape=[hp.intermediate_dim])
+
+        elif ARGS.classifier_model == "all":
+            print("===== start XGB =====")
+            xgb = XGBClassifier(random_state=42)
+            xgb.fit(X_train, y_train)
+            print("Acc for XGBoost: {}".format(xgb.score(X_test, y_test)))
+            print("===== start RandomForest =====")
+            forest = RandomForestClassifier(random_state=42)
+            forest.fit(X_train, y_train)
+            print("Acc for RandomForest: {}".format(forest.score(X_test, y_test)))
+            print("===== start LogisticRegression =====")
+            logreg = LogisticRegression(random_state=42)
+            logreg.fit(X_train, y_train)
+            print("Acc for LogisticRegression: {}".format(logreg.score(X_test, y_test)))
+            print("===== start SVC =====")
+            svc = SVC(random_state=42)
+            svc.fit(X_train, y_train)
+            print("Acc for SVC: {}".format(svc.score(X_test, y_test)))
+
+            print("===== start plotting results =====")
+
+            font = {"weight": "bold", "size": 10}
+            matplotlib.rc("font", **font)
+
+            xgb_disp = plot_roc_curve(xgb, X_test, y_test)
+            forest_disp = plot_roc_curve(forest, X_test, y_test, ax=xgb_disp.ax_)
+            logreg_disp = plot_roc_curve(logreg, X_test, y_test, ax=xgb_disp.ax_)
+            svc_disp = plot_roc_curve(svc, X_test, y_test, ax=xgb_disp.ax_)
+            if ARGS.train_classifier_data == "biomed":
+                plt.savefig(
+                    "./{}_{}.png".format(
+                        ARGS.autoencoder_model, ARGS.train_classifier_data
+                    ),
+                    dpi=300,
+                )
+            elif ARGS.train_classifier_data == "merged":
+                plt.savefig(
+                    "./{}_{}.png".format(
+                        ARGS.autoencoder_model, ARGS.merged_data.split("/")[-1]
+                    ),
+                    dpi=300,
+                )
+            elif ARGS.train_classifier_data == "omics":
+                plt.savefig(
+                    "./{}_{}.png".format(
+                        ARGS.autoencoder_model, ARGS.train_classifier_data
+                    ),
+                    dpi=300,
+                )
 
         elif ARGS.classifier_model == "xgboost":
             xgb = XGBClassifier()
@@ -303,32 +444,6 @@ def main():
                 max_features=["sqrt", "log2", "None"],
                 boostrap=[True, False],
             )
-        elif ARGS.classifier_model == "all":
-            print("===== start XGB =====")
-            xgb = XGBClassifier(random_state=42)
-            xgb.fit(X_train, y_train)
-            print("===== start RandomForest =====")
-            forest = RandomForestClassifier(random_state=42)
-            forest.fit(X_train, y_train)
-            print("===== start LogisticRegression =====")
-            logreg = LogisticRegression(random_state=42)
-            logreg.fit(X_train, y_train)
-            print("===== start SVC =====")
-            svc = SVC(random_state=42)
-            svc.fit(X_train, y_train)
-
-            print("===== start plotting results =====")
-
-            font = {"family": "normal", "weight": "bold", "size": 10}
-            matplotlib.rc("font", **font)
-
-            xgb_disp = plot_roc_curve(xgb, X_test, y_test)
-            forest_disp = plot_roc_curve(forest, X_test, y_test, ax=xgb_disp.ax_)
-            logreg_disp = plot_roc_curve(logreg, X_test, y_test, ax=xgb_disp.ax_)
-            svc_disp = plot_roc_curve(svc, X_test, y_test, ax=xgb_disp.ax_)
-            # svc_disp.figure_.suptitle("ROC curve comparison")
-
-            plt.savefig("omics_clinical_classifers.png", dpi=300)
 
         elif ARGS.classifier_model == "all_optimization":
 

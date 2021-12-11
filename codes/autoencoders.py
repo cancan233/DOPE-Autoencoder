@@ -121,8 +121,9 @@ class Sampling(tf.keras.layers.Layer):
         z_mean, z_log_var = inputs
         batch = tf.shape(z_mean)[0]
         dim = tf.shape(z_mean)[1]
-        epsilon = tf.keras.backend.random_normal(shape=(batch, dim))
-        return z_mean + tf.exp(0.5 * z_log_var) * epsilon
+        epsilon = tf.keras.backend.random_normal(shape=(batch, dim, 1))
+        output = z_mean + tf.math.multiply(tf.exp(0.5 * z_log_var), epsilon)
+        return output
 
 
 class variational_encoder(tf.keras.layers.Layer):
@@ -166,6 +167,4 @@ class variational_autoencoder(tf.keras.Model):
     def call(self, inputs):
         z_mean, z_var, z = self.encoder(inputs)
         reconstructed = self.decoder(z)
-        kl_loss = -0.5 * tf.reduce_mean(z_var - tf.square(z_mean) - tf.exp(z_var) + 1)
-        self.add_loss(kl_loss)
         return reconstructed
