@@ -5,7 +5,7 @@ Hyperparameters used in autoencoder models
 """
 Number of training epochs
 """
-num_epochs = 40
+num_epochs = 50
 
 """
 training rate
@@ -27,4 +27,4 @@ batch_size = 4
 encode dimension
 """
 intermediate_dim = 2048
-latent_dim = 64
+latent_dim = 128

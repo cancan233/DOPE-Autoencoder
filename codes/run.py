@@ -64,7 +64,7 @@ def parse_args():
         help="path to model checkpoint file, should be similar to ./output/checkpoints/041721-201121/epoch19",
     )
     parser.add_argument(
-        "--train-autoencoder", action="store_true", help="train the autoencoder"
+        "--train-autoencoder", action="store_true", help="train the autoencoder model"
     )
     parser.add_argument(
         "--no-save",
@@ -72,7 +72,10 @@ def parse_args():
         help="not save the checkpoints, logs and model. Used only for develop purpose",
     )
     parser.add_argument(
-        "--train-classifier-data",
+        "--train-classifier", action="store_true", help="train the classifier model"
+    )
+    parser.add_argument(
+        "--classifier-data",
         default="merged",
         help="data for train the classifier, merged or biomed",
     )
@@ -140,8 +143,18 @@ def main():
         except RuntimeError as e:
             print(e)
 
-    checkpoint_path = "./output/checkpoints" + os.sep + timestamp + os.sep
-    logs_path = "./output/logs" + os.sep + timestamp + os.sep
+    checkpoint_path = (
+        "./output/checkpoints"
+        + os.sep
+        + "{}_{}".format(timestamp, ARGS.autoencoder_model)
+        + os.sep
+    )
+    logs_path = (
+        "./output/logs"
+        + os.sep
+        + "{}_{}".format(timestamp, ARGS.autoencoder_model)
+        + os.sep
+    )
 
     if not ARGS.no_save:
         print("checkpoint file saved at {}".format(checkpoint_path))
@@ -188,6 +201,7 @@ def main():
         autoencoder.load_weights(ARGS.load_autoencoder).expect_partial()
 
     if ARGS.train_autoencoder:
+        print("===== Train autoencoder =====")
         tf.convert_to_tensor(omics_data)
         omics_data = tf.expand_dims(omics_data, axis=1)
         training_dataset = tf.data.Dataset.from_tensor_slices(omics_data)
@@ -228,14 +242,16 @@ def main():
             print(template.format(epoch + 1, train_loss.result()))
             train_loss.reset_states()
 
-    if ARGS.train_classifier_data:
-        if " ".join(ARGS.omics_data[:-4].split("/")[-1].split("_")[:3]) != " ".join(
-            ARGS.merged_data[:-4].split("/")[-1].split("_")[:3]
-        ):
-            sys.exit("Wrong omics data for merged data!")
+    if ARGS.train_classifier:
+        print("===== train classifier =====")
+        print("===== classifier preprocess =====")
+        # biomed_df = pd.read_csv(ARGS.biomed_data, index_col=0)
+        # merged_df = pd.read_csv(ARGS.merged_data, index_col=0).astype("float32")
 
-        if ARGS.train_classifier_data == "merged":
-            print("===== classifier preprocess =====")
+        # if biomed_df.shape[1] + omics_df.shape[1] != merged_df.shape[1] + 1:
+        #     sys.exit("please check your data! biomed_df + omics_df != merged_df")
+
+        if ARGS.classifier_data == "merged":
             biomed_df = pd.read_csv(ARGS.biomed_data, index_col=0)
             num_biomed_features = biomed_df.shape[1] - 1
 
@@ -266,30 +282,38 @@ def main():
                 X.numpy().reshape(-1, hp.latent_dim + num_biomed_features),
                 Y.numpy().reshape(-1,),
             )
-        elif ARGS.train_classifier_data == "biomed":
-            """
+        elif ARGS.classifier_data == "biomed":
+            """ This use the unmerged biomed data for classifier
+
             print("===== classifier preprocess =====")
-            biomed_df = (
-                pd.read_csv(ARGS.biomed_data, index_col=0)
-                .drop(columns=["bcr_patient_uuid"])
-                .astype("float32")
-                .to_numpy()
+            biomed_df = pd.read_csv(ARGS.biomed_data, index_col=0)
+            num_biomed_features = biomed_df.shape[1] - 1
+            if "bcr_patient_uuid" in biomed_df.keys():
+                biomed_df.drop(columns=["bcr_patient_uuid"], inplace=True)
+
+            print(
+                "{} contains {} patients with {} features".format(
+                    ARGS.biomed_data.split("/")[-1],
+                    biomed_df.shape[0],
+                    biomed_df.shape[1] - 1,
+                )
             )
-            X, Y = biomed_df[:, :-1], biomed_df[:, -1]
+            X, Y = biomed_df.iloc[:, :-1], biomed_df.iloc[:, -1]
             """
-            print("===== classifier preprocess =====")
+
             biomed_df = pd.read_csv(ARGS.biomed_data, index_col=0)
             num_biomed_features = biomed_df.shape[1] - 1
 
             merged_df = pd.read_csv(ARGS.merged_data, index_col=0).astype("float32")
 
             print(
-                "{} contains {} patients with {} features".format(
+                "{} contains biomed data for {} patients with {} features".format(
                     ARGS.merged_data.split("/")[-1],
                     merged_df.shape[0],
-                    merged_df.shape[1] - 1,
+                    num_biomed_features,
                 )
             )
+
             X, Y = merged_df.iloc[:, :-1], merged_df.iloc[:, -1]
             tf.convert_to_tensor(X)
             tf.convert_to_tensor(Y)
@@ -302,18 +326,18 @@ def main():
                 X_biomed.numpy().reshape(-1, num_biomed_features),
                 Y.numpy().reshape(-1,),
             )
-        elif ARGS.train_classifier_data == "omics":
-            print("===== classifier preprocess =====")
+
+        elif ARGS.classifier_data == "omics":
             biomed_df = pd.read_csv(ARGS.biomed_data, index_col=0)
             num_biomed_features = biomed_df.shape[1] - 1
 
             merged_df = pd.read_csv(ARGS.merged_data, index_col=0).astype("float32")
 
             print(
-                "{} contains {} patients with {} features".format(
+                "{} contains omics data for {} patients with {} features".format(
                     ARGS.merged_data.split("/")[-1],
                     merged_df.shape[0],
-                    merged_df.shape[1] - 1,
+                    merged_df.shape[1] - 1 - num_biomed_features,
                 )
             )
             X, Y = merged_df.iloc[:, :-1], merged_df.iloc[:, -1]
@@ -333,7 +357,7 @@ def main():
                 Y.numpy().reshape(-1,),
             )
         else:
-            sys.exit("wrong classifier mode!")
+            sys.exit("wrong classifier data!")
 
         X_train, X_test, y_train, y_test = train_test_split(
             X, Y, test_size=0.2, random_state=42
@@ -344,25 +368,25 @@ def main():
             )
         )
         if ARGS.classifier_model == "vanilla_nn":
+            sys.exit("Not finished!")
             classifier = vanilla_classifier(input_shape=[hp.intermediate_dim])
 
         elif ARGS.classifier_model == "all":
             print("===== start XGB =====")
             xgb = XGBClassifier(random_state=42)
             xgb.fit(X_train, y_train)
-            print("Acc for XGBoost: {}".format(xgb.score(X_test, y_test)))
+
             print("===== start RandomForest =====")
             forest = RandomForestClassifier(random_state=42)
             forest.fit(X_train, y_train)
-            print("Acc for RandomForest: {}".format(forest.score(X_test, y_test)))
+
             print("===== start LogisticRegression =====")
             logreg = LogisticRegression(random_state=42)
             logreg.fit(X_train, y_train)
-            print("Acc for LogisticRegression: {}".format(logreg.score(X_test, y_test)))
+
             print("===== start SVC =====")
             svc = SVC(random_state=42)
             svc.fit(X_train, y_train)
-            print("Acc for SVC: {}".format(svc.score(X_test, y_test)))
 
             print("===== start plotting results =====")
 
@@ -373,80 +397,31 @@ def main():
             forest_disp = plot_roc_curve(forest, X_test, y_test, ax=xgb_disp.ax_)
             logreg_disp = plot_roc_curve(logreg, X_test, y_test, ax=xgb_disp.ax_)
             svc_disp = plot_roc_curve(svc, X_test, y_test, ax=xgb_disp.ax_)
-            if ARGS.train_classifier_data == "biomed":
-                plt.savefig(
-                    "./{}_{}.png".format(
-                        ARGS.autoencoder_model, ARGS.train_classifier_data
-                    ),
-                    dpi=300,
+
+            print("Acc for XGBoost: {:.2f}".format(xgb.score(X_test, y_test)))
+            print("Acc for RandomForest: {:.2f}".format(forest.score(X_test, y_test)))
+            print(
+                "Acc for LogisticRegression: {:.2f}".format(
+                    logreg.score(X_test, y_test)
                 )
-            elif ARGS.train_classifier_data == "merged":
-                plt.savefig(
-                    "./{}_{}.png".format(
-                        ARGS.autoencoder_model, ARGS.merged_data.split("/")[-1]
-                    ),
-                    dpi=300,
-                )
-            elif ARGS.train_classifier_data == "omics":
-                plt.savefig(
-                    "./{}_{}.png".format(
-                        ARGS.autoencoder_model, ARGS.train_classifier_data
-                    ),
-                    dpi=300,
-                )
-
-        elif ARGS.classifier_model == "xgboost":
-            xgb = XGBClassifier()
-
-            xgb_params = {
-                "booster": ["gbtree", "gblinear", "dart"],
-                "n_estimators": [50, 100, 300],
-                "max_depth": [3, 5, 7],
-                "learning_rate": [0.1, 0.01, 0.001],
-            }
-
-            xgb_cv_model = GridSearchCV(
-                xgb, xgb_params, cv=3, n_jobs=-1, verbose=2
-            ).fit(X_train, y_train)
-            print(xgb_cv_model.best_params_)
-            xgb_tuned = XGBClassifier(xgb_cv_model.best_params_).fit(X_train, y_train)
-            xgb_disp = plot_roc_curve(xgb, X_test, y_test)
-            plt.show()
-
-            """
-            classifier.fit(X_train, y_train)
-            classifier.score(X_test, y_test)
-            pred_prob = classifier.predict_proba(X_test)
-            pred_prob = [point[1] for point in pred_prob]
-
-            fpr, tpr, thresholds = roc_curve(y_test, pred_prob)
-            plot_roc_curve(classifier, X_test, y_test)
-            plt.show()
-            print("Thresholds: ")
-            print(thresholds)
-            """
-
-        elif ARGS.classifier_model == "logisticregression":
-            classifier = LogisticRegression()
-            hyparams_logreg = dict(
-                penalty=["l2", "none"],
-                C=np.linespace(0.001, 1000),
-                solver=["newton-cg", "lbfgs", "sag"],
-                max_iter=[5000],
             )
-        elif ARGS.classifier_model == "randomforest":
-            classifier = RandomForestClassifier()
-            hyparams_forest = dict(
-                n_estimators=list(range(50, 1050, 50)),
-                criterion=["gini", "entropy"],
-                max_depth=list(range(1, 101)),
-                min_samples_split=list(range(1, 101)),
-                max_features=["sqrt", "log2", "None"],
-                boostrap=[True, False],
-            )
+            print("Acc for SVC: {:.2f}".format(svc.score(X_test, y_test)))
+
+            if ARGS.classifier_data == "biomed" or ARGS.classifier_data == "omics":
+                plt.savefig(
+                    "./{}_{}.png".format(ARGS.autoencoder_model, ARGS.classifier_data),
+                    dpi=300,
+                )
+            elif ARGS.classifier_data == "merged":
+                plt.savefig(
+                    "./{}_{}.png".format(
+                        ARGS.autoencoder_model, ARGS.merged_data.split("/")[-1][:-4]
+                    ),
+                    dpi=300,
+                )
 
         elif ARGS.classifier_model == "all_optimization":
-
+            sys.exit("Not finished!")
             print("===== start xgb optimization =====")
             xgb = XGBClassifier()
             hyparams_xgb = dict(
