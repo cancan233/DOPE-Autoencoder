@@ -77,7 +77,7 @@ def parse_args():
     parser.add_argument(
         "--classifier-data",
         default="merged",
-        help="data for train the classifier, merged or biomed",
+        help="data for train the classifier, merged, biomed, omics, embed_omics, where merged means biomed + embed_omics.",
     )
 
     return parser.parse_args()
@@ -340,6 +340,26 @@ def main():
                     merged_df.shape[1] - 1 - num_biomed_features,
                 )
             )
+
+            X, Y = (
+                merged_df.iloc[:, : -1 - num_biomed_features].to_numpy(),
+                merged_df.iloc[:, -1].to_numpy(),
+            )
+
+        elif ARGS.classifier_data == "embed_omics":
+            biomed_df = pd.read_csv(ARGS.biomed_data, index_col=0)
+            num_biomed_features = biomed_df.shape[1] - 1
+
+            merged_df = pd.read_csv(ARGS.merged_data, index_col=0).astype("float32")
+
+            print(
+                "{} contains omics data for {} patients with {} features".format(
+                    ARGS.merged_data.split("/")[-1],
+                    merged_df.shape[0],
+                    merged_df.shape[1] - 1 - num_biomed_features,
+                )
+            )
+
             X, Y = merged_df.iloc[:, :-1], merged_df.iloc[:, -1]
             tf.convert_to_tensor(X)
             tf.convert_to_tensor(Y)
