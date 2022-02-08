@@ -3,7 +3,7 @@
 ## Download dataset
 The jupyter notebook `omics_data_preparation.ipynb` provides way to download the four types omics data and proprocess procedure. 
 
-A simple to use it: change the domain of the notebook from 'github.com' to 'githubtocolab.com'. And it will open in Google Colab automatically.
+A simple to use it: change the domain of the notebook from 'github.com' to 'colab.research.google.com/github'. And it will open in Google Colab automatically.
 
 We also provide the preprocessed data, which can be downloaded directly from the [Google Drive Link](https://drive.google.com/drive/folders/1-I54hMQOTHLTsKpf26pe_yDyIp-2HoB5?usp=sharing). Put the code below into a .sh file and run it from terminal. The example will download the `cnv.csv`. You need to change the `FILEID` and `FILENAME` to download different dataset.
 

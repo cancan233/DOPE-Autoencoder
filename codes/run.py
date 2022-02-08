@@ -276,6 +276,9 @@ def main():
                 X_omics = autoencoder.encoder(X_omics)[-1]
             else:
                 X_omics = autoencoder.encoder(X_omics)
+            X_encoded = X_omics.numpy().reshape(-1, hp.latent_dim)
+            np.savetxt("latent_features.csv", X_encoded, delimiter=",")
+
             print("===== finish omics encoding =====")
             X = tf.concat([X_omics, X_biomed], axis=2)
             X, Y = (
@@ -371,6 +374,10 @@ def main():
                 X_omics = autoencoder.encoder(X_omics)[-1]
             else:
                 X_omics = autoencoder.encoder(X_omics)
+
+            X_encoded = X_omics.numpy().reshape(-1, hp.latent_dim)
+            print(X_encoded.shape)
+            np.savetxt("latent_features.csv", X_encoded, delimiter=",")
             print("===== finish omics encoding =====")
             X, Y = (
                 X_omics.numpy().reshape(-1, hp.latent_dim),
