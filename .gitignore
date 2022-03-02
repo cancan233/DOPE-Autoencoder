@@ -1,7 +1,8 @@
 # custom files
 .DS_Store
 .vscode/
-omics_data/*.csv
+data/omics_data/0_raw_data/*
+data/omics_data/1_csv_data/*
 codes/*.csv
 */tmp/
 */output
