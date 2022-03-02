@@ -49,7 +49,7 @@ def merge_omics_biomed(omic_df, biomed_df, uuid2barcode, merged_name):
 
 def dict_uuid2barcode():
     uuid2barcode = {}
-    path = "../biomed_clinic_data/csv_data"
+    path = "../data/biomed_clinic_data/01_csv_data"
     all_files = glob.glob(os.path.join(path, "*.csv"))
     for f in all_files:
         df = pd.read_csv(f, sep=",")
@@ -62,19 +62,30 @@ def dict_uuid2barcode():
     return uuid2barcode
 
 
+def save_uuid2barcode():
+    uuid2barcode = dict_uuid2barcode()
+    with open("uuid2barcode.json", "w") as file:
+        json.dump(uuid2barcode, file)
+
+
 def merge():
     omic = "cnv_methyl_mrna"
     # omic = "cnv_methyl_rnaseq"
-    time_now = datetime.now()
-    timestamp = time_now.strftime("%m%d%y-%H%M%S")
     biomed = "biomed_85features"
 
+    time_now = datetime.now()
+    timestamp = time_now.strftime("%m%d%y-%H%M%S")
+
     merged_name = "{}_{}_{}.csv".format(omic, biomed, timestamp)
+
     print("merging {} and biomed data at {}".format(omic, merged_name))
-    omic_df = pd.read_csv("../omics_data/{}.csv".format(omic), index_col=0).T
+
+    omic_df = pd.read_csv(
+        "../data/omics_data/1_csv_data/{}.csv".format(omic), index_col=0
+    ).T
     omic_df = omic_df.astype("float32")
     biomed_df = (
-        pd.read_csv("./data/{}.csv".format(biomed), index_col=0,)
+        pd.read_csv("../data/biomed_clinic_data/{}.csv".format(biomed), index_col=0,)
         .drop_duplicates()
         .reset_index()
     )
@@ -83,21 +94,6 @@ def merge():
     merge_omics_biomed(omic_df, biomed_df, uuid2barcode, merged_name)
 
 
-def save_uuid2barcode():
-    uuid2barcode = dict_uuid2barcode()
-
-    with open("uuid2barcode.json", "w") as file:
-        json.dump(uuid2barcode, file)
-
-    with open("uuid2barcode.json", "r") as file:
-        new_dict = json.load(file)
-
-    print(new_dict)
-
-
 if __name__ == "__main__":
+    save_uuid2barcode()
     merge()
-    
-    # uuid2barcode()
-
-    reindex()

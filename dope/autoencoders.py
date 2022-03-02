@@ -79,17 +79,11 @@ class convolutional_decoder(tf.keras.layers.Layer):
         self.hidden_layer = tf.keras.Sequential(
             [
                 Conv1D(64, 5, 1, padding="same", activation="relu"),
-                # Reshape((1, -1)),
                 UpSampling1D(),
-                # Reshape((1, 1, -1)),
                 Conv1D(128, 5, 1, padding="same", activation="relu"),
-                # Reshape((1, -1)),
                 UpSampling1D(),
-                # Reshape((1, 1, -1)),
                 Conv1D(256, 5, 1, padding="same", activation="relu"),
-                # Reshape((1, -1)),
                 UpSampling1D(),
-                # Reshape((1, 1, -1)),
             ]
         )
         self.output_layer = Conv1D(1, 5, 1, activation="sigmoid", padding="same")

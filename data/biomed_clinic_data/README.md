@@ -1,7 +1,7 @@
 # Biomedical and Clinical Datasets
 
 
-> 🚧 The patients in multi-omics data is represented by bcr_patient_uuid
+> 🚧 The patients in biomed-clinical data is represented by bcr_patient_uuid
 
 ## Download dataset and Dataset details
 

@@ -1,12 +1,8 @@
 ## Requirements
 
-* python 3.6
-* tensorflow 2.x
-
-> 🚧 The biomed data is not indexed by uuid, which is index by number 0 instead. The uuid column is at the end of the data table.
+> 🚧 The patients in biomed-clinical data is represented by bcr_patient_uuid
 > 
-> 🚧 The omics data and the merged data is indexed by barcode. 
-
+> 🚧 The patients in multi-omics data is represented by bcr_sample_barcode
 
 ## Usage
 
