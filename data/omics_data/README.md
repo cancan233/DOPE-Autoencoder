@@ -1,7 +1,10 @@
 # Omics dataset TCGA
 
+
+> 🚧 The patients in multi-omics data is represented by bcr_sample_barcode
+
 ## Download dataset
-The jupyter notebook `omics_data_preparation.ipynb` provides way to download the four types omics data and proprocess procedure. We have provided the after-preproccessed csv files in [Google Drive]()
+The jupyter notebook `omics_data_preparation.ipynb` provides way to download the four types omics data and proprocess procedure. We have provided the after-preproccessed csv files in [Google Drive](https://drive.google.com/drive/folders/1-I54hMQOTHLTsKpf26pe_yDyIp-2HoB5?usp=sharing) [The sizes of files exceed the Github LFS limitation.]
 
 ```bash
 # download any file from the google drive using wget

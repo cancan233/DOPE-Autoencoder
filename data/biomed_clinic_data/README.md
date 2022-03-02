@@ -1,5 +1,8 @@
 # Biomedical and Clinical Datasets
 
+
+> 🚧 The patients in multi-omics data is represented by bcr_patient_uuid
+
 ## Download dataset and Dataset details
 
 * [Biomedical] (Available at https://wiki.cancerimagingarchive.net/display/Public/TCGA-OV#75694970aa49cd675604c35a9d171bde3194990). Size: (33138, 112)
