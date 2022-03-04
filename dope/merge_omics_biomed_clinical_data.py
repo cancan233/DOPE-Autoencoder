@@ -19,9 +19,9 @@ def merge_omics_biomed(omic_df, biomed_df, uuid2barcode, merged_name):
         f"Number of features: {num_features} \t Number of patients: {num_patients} in biomed data"
     )
 
-    # move "treatment_outcome_first_course_x" to the last column
+    # move "RECURRENCE" to the last column
     temp_cols = biomed_df.columns.tolist()
-    index = biomed_df.columns.get_loc("treatment_outcome_first_course_x")
+    index = biomed_df.columns.get_loc("RECURRENCE")
     new_cols = (
         temp_cols[0:index] + temp_cols[index + 1 :] + temp_cols[index : index + 1]
     )
@@ -38,13 +38,16 @@ def merge_omics_biomed(omic_df, biomed_df, uuid2barcode, merged_name):
             biomed_df["bcr_patient_barcode"][i] = None
     biomed_df.drop(columns=["bcr_patient_uuid"], inplace=True)
 
-    # Temporary only take the "treatment_outcome_first_course_x" data
+    # Temporary only take the "RECURRENCE" data
     target_df = biomed_df
     target_df = target_df.drop_duplicates()
     target_df = target_df.set_index("bcr_patient_barcode")
 
     merged_df = pd.merge(omic_df, target_df, left_index=True, right_index=True)
-    merged_df.to_csv("./data/{}".format(merged_name))
+
+    print(merged_df.head())
+
+    merged_df.to_csv("./{}".format(merged_name))
 
 
 def dict_uuid2barcode():
@@ -76,7 +79,7 @@ def merge():
     time_now = datetime.now()
     timestamp = time_now.strftime("%m%d%y-%H%M%S")
 
-    merged_name = "{}_{}_{}.csv".format(omic, biomed, timestamp)
+    merged_name = "{}_{}_{}.csv".format(omic, biomed)
 
     print("merging {} and biomed data at {}".format(omic, merged_name))
 
