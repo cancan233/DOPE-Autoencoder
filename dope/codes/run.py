@@ -31,7 +31,8 @@ from sklearn.metrics import roc_curve, roc_auc_score, plot_roc_curve
 
 import matplotlib.pyplot as plt
 import matplotlib
-from utils import *
+
+# from utils import *
 
 
 def parse_args():
