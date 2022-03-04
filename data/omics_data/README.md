@@ -6,14 +6,7 @@
 ## Download dataset
 The jupyter notebook `omics_data_preparation.ipynb` provides way to download the four types omics data and proprocess procedure. We have provided the after-preproccessed csv files in [Google Drive](https://drive.google.com/drive/folders/1-I54hMQOTHLTsKpf26pe_yDyIp-2HoB5?usp=sharing) [The sizes of files exceed the Github LFS limitation.]
 
-```bash
-# download any file from the google drive using wget
-# Assume the file link is https://drive.google.com/file/d/1-1CllImqDG29XvU9raJfRHR4Hd77WX_W/view?usp=sharing
-
-FILEID=1-1CllImqDG29XvU9raJfRHR4Hd77WX_W
-FILENAME='cnv.csv'
-wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=$FILEID' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=$FILEID" -O $FILENAME && rm -rf /tmp/cookies.txt
-```
+You can run `download.sh` to download the two preprocessed tri-omics data files: `cnv_methyl_rnaseq.csv` and `cnv_methyl_mrna.csv`.
 
 ## Dataset summary
 

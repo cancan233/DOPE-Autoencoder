@@ -71,7 +71,7 @@ def parse_args():
         "--train-classifier", action="store_true", help="train the classifier model"
     )
     parser.add_argument(
-        "--classifer-data",
+        "--classifier-data",
         default=None,
         help="merged, omics, biomed, encoded_omics. The encoding process will take place during the classification process. So even when choose encoded_omics, only the raw omics data is required as input.",
     )
@@ -366,7 +366,7 @@ def main():
                         ARGS.merged_data.split("/")[-1],
                     )
                 )
-                
+
                 # np.savetxt(
                 #     "./output/{}_{}/latent_features_{}".format(
                 #         timestamp,
