@@ -184,6 +184,7 @@ def main():
     if ARGS.load_autoencoder is not None:
         print("===== Loading pretrained autoencoder =====")
         autoencoder.load_weights(ARGS.load_autoencoder).expect_partial()
+        print("loading pretrained model at {}".format(ARGS.load_autoencoder))
 
     if ARGS.train_autoencoder:
         print("===== Train autoencoder =====")
@@ -229,6 +230,7 @@ def main():
 
     if ARGS.train_classifier:
         print("===== train classifier =====")
+        print("classifier data: {}".format(ARGS.classifier_data))
         print("===== classifier preprocess =====")
 
         if ARGS.classifier_data == "merged":
@@ -261,23 +263,12 @@ def main():
             # TODO: save as .csv file with barcode as index
 
             if ARGS.save_encoded_omics:
-                df = pd.DataFrame(X_encoded, index=X.index)
-                df.to_csv(
-                    "./output/{}_{}/latent_features_{}".format(
-                        timestamp,
-                        ARGS.autoencoder_model,
-                        ARGS.merged_data.split("/")[-1],
-                    )
+                df = pd.DataFrame(X_encoded, index=merged_df.index)
+                text = "latent_features_{}_{}".format(
+                    ARGS.autoencoder_model, ARGS.merged_data.split("/")[-1],
                 )
-                # np.savetxt(
-                #     "./output/{}_{}/latent_features_{}".format(
-                #         timestamp,
-                #         ARGS.autoencoder_model,
-                #         ARGS.merged_data.split("/")[-1],
-                #     ),
-                #     X_encoded,
-                #     delimiter=",",
-                # )
+                df.to_csv(text)
+                print("save encoded omics features in {}".format(text))
 
             print("===== finish omics encoding =====")
             X = tf.concat([X_omics, X_biomed], axis=2)
@@ -359,24 +350,12 @@ def main():
 
             X_encoded = X_omics.numpy().reshape(-1, hp.latent_dim)
             if ARGS.save_encoded_omics:
-                df = pd.DataFrame(X_encoded, index=X.index)
-                df.to_csv(
-                    "./output/{}_{}/latent_features_{}".format(
-                        timestamp,
-                        ARGS.autoencoder_model,
-                        ARGS.merged_data.split("/")[-1],
-                    )
+                df = pd.DataFrame(X_encoded, index=merged_df.index)
+                text = "latent_features_{}_{}".format(
+                    ARGS.autoencoder_model, ARGS.merged_data.split("/")[-1],
                 )
-
-                # np.savetxt(
-                #     "./output/{}_{}/latent_features_{}".format(
-                #         timestamp,
-                #         ARGS.autoencoder_model,
-                #         ARGS.merged_data.split("/")[-1],
-                #     ),
-                #     X_encoded,
-                #     delimiter=",",
-                # )
+                df.to_csv(text)
+                print("save encoded omics features in {}".format(text))
 
             print("===== finish omics encoding =====")
             X, Y = (
