@@ -132,6 +132,8 @@ class variational_encoder(tf.keras.layers.Layer):
 
     def call(self, inputs):
         x = self.hidden_layer(inputs)
+        # x = BatchNormalization(x)
+        # x = LeakyReLU(x)
         z_mean = self.output_mean(x)
         z_var = self.output_var(x)
         z = self.sampling((z_mean, z_var))
@@ -148,6 +150,7 @@ class variational_decoder(tf.keras.layers.Layer):
 
     def call(self, inputs):
         x = self.hidden_layer(inputs)
+        # x = BatchNormalization(x)
         return self.output_layer(x)
 
 

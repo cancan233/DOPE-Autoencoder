@@ -124,17 +124,26 @@ def main():
         except RuntimeError as e:
             print(e)
 
+    print("===== loading omics data =====")
+    omics_data = pd.read_csv(ARGS.omics_data, index_col=0).T.astype("float32")
+    (num_patients, num_features) = omics_data.shape
+    print(
+        "{} contains {} patients with {} features".format(
+            ARGS.omics_data.split("/")[-1], num_patients, num_features
+        )
+    )            
+
     checkpoint_path = (
         "./output"
         + os.sep
-        + "{}_{}".format(timestamp, ARGS.autoencoder_model)
+        + "{}_{}_{}".format(timestamp, ARGS.autoencoder_model, ARGS.omics_data.split("/")[-1][:-4])
         + os.sep
         + "checkpoints"
     )
     logs_path = (
         "./output"
         + os.sep
-        + "{}_{}".format(timestamp, ARGS.autoencoder_model)
+        + "{}_{}_{}".format(timestamp, ARGS.autoencoder_model, ARGS.omics_data.split("/")[-1][:-4])
         + os.sep
         + "logs"
     )
@@ -144,6 +153,7 @@ def main():
         print("log file save as {}".format(logs_path))
 
     logs_path = os.path.abspath(logs_path)
+    checkpoint_path = os.path.abspath(checkpoint_path)
 
     if (
         not os.path.exists(checkpoint_path)
@@ -152,15 +162,6 @@ def main():
     ):
         os.makedirs(checkpoint_path)
         os.makedirs(logs_path)
-
-    print("===== loading omics data =====")
-    omics_data = pd.read_csv(ARGS.omics_data, index_col=0).T.astype("float32")
-    (num_patients, num_features) = omics_data.shape
-    print(
-        "{} contains {} patients with {} features".format(
-            ARGS.omics_data.split("/")[-1], num_patients, num_features
-        )
-    )
 
     if ARGS.autoencoder_model == "vanilla":
         autoencoder = vanilla_autoencoder(
@@ -252,20 +253,21 @@ def main():
             X = tf.expand_dims(X, axis=1)
             Y = tf.expand_dims(Y, axis=1)
 
-            X_omics = X[:, :, :-num_biomed_features]
-            X_biomed = X[:, :, -num_biomed_features:]
+            X_omics = X[:, :, num_biomed_features:]
+            X_biomed = X[:, :, :num_biomed_features]
             if ARGS.autoencoder_model == "variational":
                 X_omics = autoencoder.encoder(X_omics)[-1]
             else:
                 X_omics = autoencoder.encoder(X_omics)
+            
             X_encoded = X_omics.numpy().reshape(-1, hp.latent_dim)
-
+            
             # TODO: save as .csv file with barcode as index
 
             if ARGS.save_encoded_omics:
                 df = pd.DataFrame(X_encoded, index=merged_df.index)
                 text = "latent_features_{}_{}".format(
-                    ARGS.autoencoder_model, ARGS.merged_data.split("/")[-1],
+                    ARGS.autoencoder_model, ARGS.omics_data.split("/")[-1],
                 )
                 df.to_csv(text)
                 print("save encoded omics features in {}".format(text))
@@ -296,8 +298,10 @@ def main():
             X = tf.expand_dims(X, axis=1)
             Y = tf.expand_dims(Y, axis=1)
 
-            X_biomed = X[:, :, -num_biomed_features:]
-
+            # X_biomed = X[:, :, -num_biomed_features:]
+            X_biomed = X[:, :, :num_biomed_features]
+            
+            
             X, Y = (
                 X_biomed.numpy().reshape(-1, num_biomed_features),
                 Y.numpy().reshape(-1,),
@@ -342,7 +346,7 @@ def main():
             X = tf.expand_dims(X, axis=1)
             Y = tf.expand_dims(Y, axis=1)
 
-            X_omics = X[:, :, :-num_biomed_features]
+            X_omics = X[:, :, num_biomed_features:]
             if ARGS.autoencoder_model == "variational":
                 X_omics = autoencoder.encoder(X_omics)[-1]
             else:
@@ -352,7 +356,7 @@ def main():
             if ARGS.save_encoded_omics:
                 df = pd.DataFrame(X_encoded, index=merged_df.index)
                 text = "latent_features_{}_{}".format(
-                    ARGS.autoencoder_model, ARGS.merged_data.split("/")[-1],
+                    ARGS.autoencoder_model, ARGS.omics_data.split("/")[-1],
                 )
                 df.to_csv(text)
                 print("save encoded omics features in {}".format(text))

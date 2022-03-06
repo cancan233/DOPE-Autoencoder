@@ -52,7 +52,11 @@ python run.py --classifier-model all \
               --no-save
 ```
 
-## Results
+## Workflow for producing dataframe contains the encoded omics features together with the biomed-clinical features
+
+1. Generate the encoded omics features, i.e., latent features produced by the autoencoder. Go into the folder `encoded_omics_data`, and follow the commands in `Encoding_omics_features_with_autoencoder.ipynb` to generate the encoded omics data. 
+
+2. Open `merge_omics_biomed_clinical_data.ipyne`, go section that combine the encoded omics features with the biomed-clincial features. Please read through the command arguments, change them if necessary, especially checkpoint directory, tri-omics data path, etc.
 
 ## Reference
 1. VAE: https://gist.github.com/RomanSteinberg/c4a47470ab1c06b0c45fa92d07afe2e3
