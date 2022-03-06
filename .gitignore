@@ -3,7 +3,8 @@
 .vscode/
 data/omics_data/0_raw_data/*
 data/omics_data/1_csv_data/*
-dope/*.csv
+# dope/*.csv
+*/original_omics_biomed_clinical_data/*
 */tmp/
 */output
 */data
